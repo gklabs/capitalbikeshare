@@ -5,11 +5,10 @@ import scipy
 
 
 class customer:
-	def __init__(self,cust_id,cust_type,biketype,bikeid,start_time, end_time,duration,start_station_id,end_station_id ):
+	def __init__(self,cust_id,cust_type,bike,start_time, end_time,duration,start_station_id,end_station_id ):
 		self.cust_id= cust_id
 		self.cust_type= cust_type
-		self.biketype = biketype
-		self.bikeid = bikeid
+		self.bike = bike #assigns the bike object to the customer
 		self.start_time= start_time
 		self.end_time= end_time
 		self.duration=duration
@@ -18,7 +17,7 @@ class customer:
 		
 
 class bike:
-	def __init__(self,station_id,bikeid,bike_type,status):
+	def __init__(self,bikeid,station_id,bike_type,status):
 		self.bikeid= bikeid
 		self.current_station= station_id
 		self.bike_type= bike_type
@@ -33,9 +32,17 @@ class station:
 		self.no_pedalbikes = no_pedalbikes
 		self.bike_list= bike_list
 
-	def UpdateNumberofBikes(self,option):
+	def UpdateNumberofBikes(self,biketype_assigned):
 
-		print("updating the bikes in the stations")
+		print("updating the bikes in the station")
+		if biketype_assigned=="pedalbike":
+			self.no_pedalbikes-=self.no_pedalbikes
+		else:
+			self.no_ebikes-=self.no_ebikes
+
+		self.no_empty_docks+=self.no_empty_docks
+
+		#removing bike from the station's bikelist is done in give_bike function
 
 
 def give_end_station(start_station_id):
@@ -63,12 +70,20 @@ def give_end_station(start_station_id):
 	return end_station_id
 
 # This function gives the duration based on the start and end stations
-def give_duration(start_station_id,end_station_id):
+def give_duration(bike_type,start_station_id,end_station_id):
 	station_ids = [31104,31110,31113,31114,31116,31296]
 	start_index= station_ids.index(start_station_id)
 	end_index = station_ids.index(end_station_id)
+
 	#matrix for duration
-	duration_matrix= np.array([[10,10,10,10,10,10],
+	ebike_duration_matrix= np.array([[10,10,10,10,10,10],
+		[10,10,10,10,10,10],
+		[10,10,10,10,10,10],
+		[10,10,10,10,10,10],
+		[10,10,10,10,10,10],
+		[10,10,10,10,10,10]])
+
+	pedal_duration_matrix= np.array([[10,10,10,10,10,10],
 		[10,10,10,10,10,10],
 		[10,10,10,10,10,10],
 		[10,10,10,10,10,10],
@@ -84,26 +99,39 @@ def give_bike(stations_list,start_station_id,pref_bike):
 	# check if preferred bike exists in start station
 	for x in stations_list:
 		if start_station_id == x.station_id:
-			temp_station = x
+			station_index= stations_list.index(x)
 	
 	if pref_bike == "ebike":
-		if temp_station.no_ebikes !=0:
+		if stations_list[station_index].no_ebikes !=0:
 			flag=1
-			assignbike=pref_bike
-			#assign bike id
+			for y in stations_list[station_index].bike_list:
+				if y.bike_type=="ebike":
+					stations_list[station_index].bike_list.remove(y)
+					y.status="riding"
+					return y
+			
 		else:
 			flag=0
-			assignbike="pedalbike"
-	else:
-		if temp_station.no_pedalbikes !=0:
+			for y in stations_list[station_index].bike_list:
+				if y.bike_type=="pedalbike":
+					stations_list[station_index].bike_list.remove(y)
+					y.status="riding"
+					return y
+	else: # preferred bike is pedal bike
+		if stations_list[station_index].no_pedalbikes !=0:
 			flag=1
-			assignbike=pref_bike
+			for y in stations_list[station_index].bike_list:
+				if y.bike_type=="pedalbike":
+					stations_list[station_index].bike_list.remove(y)
+					y.status="riding"
+					return y
 		else:
 			flag=0
-			assignbike="ebike"
-	#assign bikeid
-
-	return bikeid,assignbike
+			for y in stations_list[station_index].bike_list:
+				if y.bike_type=="ebike":
+					stations_list[station_index].bike_list.remove(y)
+					y.status="riding"
+					return y
 
 
 def main():
@@ -128,10 +156,10 @@ def main():
     for j in range(0,6):
     	templist=[]
     	for k in range(1,no_ebikes[j]):
-    		b1=bike(k, j,"ebike", "stationary")
+    		b1=bike('e'+k, station_ids[j],"ebike", "stationary")
     		templist.append(b1)
     	for m in range(1,no_pedalbikes[j]):
-    		b2=bike(k+m, j,"pedalbike", "stationary")
+    		b2=bike('p'+k+m, station_ids[j],"pedalbike", "stationary")
     		templist.append(b2)
     	bike_list.append(templist)
 
@@ -150,8 +178,9 @@ def main():
     	#create customer objects based on poisson arrival
 	    cust_at_time = 5 # set poisson
 
+	    # for every customer spawning new in the system start the trip
 	    for c in range(1,cust_at_time+1):
-	    	
+
 	    	# casual vs member (0.2810 vs 0.7189)
 	    	casual_member= random.uniform(0,1)
 	    	if casual_member>= 0.718929:
@@ -178,9 +207,6 @@ def main():
 
 	    	#assign end station based on joint probabilities
 	    	end_station_id = give_end_station(start_station_id)
-	    	
-	    	#duration based on fixed average durations between stations
-	    	trip_duration= give_duration(start_station_id,end_station_id)
 
 	    	#assign bike preference based on priors
 	    	pedal_ebike= random.uniform(0,1)
@@ -190,16 +216,51 @@ def main():
 	    		pref_bike ="ebike"
 
 	    	#check if preferred bike exists in station else assign alternate bike
-	    	bikeid_assigned,biketype_assigned = give_bike(stations_list,start_station_id,pref_bike)
+	    	bike_assigned= give_bike(stations_list,start_station_id,pref_bike)
+
+	    	#duration based on fixed average durations between stations
+	    	trip_duration= give_duration(biketype_assigned.bike_type,start_station_id,end_station_id)
 
 	    	#update customer object with all the calculated fields
-	    	customer_list.append(customer(tot_customers+c,cust_type,,biketype_assigned,bikeid_assigned,t,t+duration,duration,start_station_id,end_station_id))
-	    	#update bike in start station
-	    	
-			#start trip- create delay for customers starting trip
-	    	#end trip- check if there are empty docks, else direct to nearest station with empty dock
+	    	customer_list.append(customer(tot_customers+c,cust_type,bike_assigned,t,t+duration,duration,start_station_id,end_station_id))
 
-	    	#update bike in end station
+	    	#update bike in start station
+	    	#call update bike function for the station object
+	    	for x in stations_list:
+				if start_station_id == x.station_id:
+					x.UpdateNumberofBikes(bike_assigned.bike_type)
+
+
+		# for customers who are currently in the middle of the trip, check if their trip is over.
+		end_trip_customer=[]
+		for cust in customer_list:
+			if cust.end_time == t:
+				print("customer ending trip")
+				end_trip_customer.append(cust)
+
+
+	    #end trip- check if there are empty docks, else direct to nearest station with empty dock
+	    for cust in end_trip_customer:
+	    	for s in stations_list:
+	    		if s.station_id==cust.end_station_id:
+	    			if s.no_empty_docks !=0:
+	    				print("empty dock available to return")
+	    				s.bike_list.append(cust.bike)
+	    				s.no_empty_docks-=1
+	    				cust.bike.current_station=s.station_id
+	    				cust.bike.status= "stationary"
+	    				end_trip_customer.remove(cust)
+	    			else:
+	    				print("no empty dock available, redirecting to another station")
+	    				for ids in station_ids:
+	    					if cust.end_station_id==ids:
+	    						cust.end_station_id = station_ids[station_ids.index(ids)+1]
+
+
+
+
+
+	    #update bike in end station
 	    tot_customers= tot_customers+cust_at_time
 
 
