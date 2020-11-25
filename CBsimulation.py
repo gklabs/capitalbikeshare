@@ -6,6 +6,8 @@ import bisect
 import pandas as pd
 import matplotlib.pyplot as plt
 
+#PROPOSED_STATION = True
+PROPOSED_STATION = False
 
 class customer:
 	def __init__(self,cust_id,cust_type,bike,start_time, end_time,duration,start_station_id,end_station_id,satisfaction ):
@@ -60,11 +62,17 @@ class station:
 
 
 def give_end_station(start_station_id):
-	station_ids = [31104,31110,31113,31114,31116,31296]
+	if PROPOSED_STATION:
+		station_ids = [31104,31110,31113,31114,31116,31296,10000]
+	else:
+		station_ids = [31104,31110,31113,31114,31116,31296]
 	end_index= station_ids.index(start_station_id)
 	end_station_id =0
 
-	end_station_joint_dist = np.array([[0.089562,0.253732,0.089552,0.199005,0.233831,0.134328],[0.142857,0.133641,0.082949,0.267281,0.119816,0.253456],[0.066986,0.320574,0.100478,0.157895,0.143541,0.210526],[0.205357,0.379464,0.049107,0.102679,0.044643,0.218750],[0.231884,0.239130,0.108696,0.101449,0.086957,0.231884],[0.117887,0.26442,0.191057,0.186992,0.138211,0.101525]])
+	if PROPOSED_STATION:
+		pass
+	else:
+		end_station_joint_dist = np.array([[0.089562,0.253732,0.089552,0.199005,0.233831,0.134328],[0.142857,0.133641,0.082949,0.267281,0.119816,0.253456],[0.066986,0.320574,0.100478,0.157895,0.143541,0.210526],[0.205357,0.379464,0.049107,0.102679,0.044643,0.218750],[0.231884,0.239130,0.108696,0.101449,0.086957,0.231884],[0.117887,0.26442,0.191057,0.186992,0.138211,0.101525]])
 
 	cust_end_node_cdf_temp= end_station_joint_dist[end_index]
 	cust_end_node_cdf =[]
@@ -294,37 +302,66 @@ def return_bike(t,cust):
 
 #===============================================================
 print("creating objects--- infrastructure ---")
-station_ids = [31104,31110,31113,31114,31116,31296]
+if PROPOSED_STATION:
+	station_ids = [31104,31110,31113,31114,31116,31296,10000]
+else:
+	station_ids = [31104,31110,31113,31114,31116,31296]
+
 stations_list = []
 bike_list =[]
-tot_bikes= 72
+
+if PROPOSED_STATION:
+	tot_bikes = 82
+else:
+	tot_bikes= 72
 #dummy numbers
 
 
-no_pedalbikes= 	[11,1,10,3,16,12]
-no_ebikes  =	[2,2,2,2,2,2]
-no_empty_docks= [14,13,19,19,12,10]
-station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
+if PROPOSED_STATION:
+	no_pedalbikes= 	[11,1,10,3,16,12,9]
+	no_ebikes  =	[2,2,2,2,2,2,1]
+	no_empty_docks= [14,13,19,19,12,10,5]
+	station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
+print(station_capacities)
+else:
+	no_pedalbikes= 	[11,1,10,3,16,12]
+	no_ebikes  =	[2,2,2,2,2,2]
+	no_empty_docks= [14,13,19,19,12,10]
+	station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
 print(station_capacities)
 
 # bike objects
-for j in range(0,6):
-	templist=[]
-	for k in range(1,no_ebikes[j]+1):
-		b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
-		templist.append(b1)
-	for m in range(1,no_pedalbikes[j]+1):
-		b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
-		templist.append(b2)
-	print(len(templist))
-	bike_list.append(templist)
-
+if PROPOSED_STATION:
+	for j in range(0,7):
+		templist=[]
+		for k in range(1,no_ebikes[j]):
+			b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
+			templist.append(b1)
+		for m in range(1,no_pedalbikes[j]):
+			b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
+			templist.append(b2)
+		bike_list.append(templist)
+else:
+	for j in range(0,6):
+		templist=[]
+		for k in range(1,no_ebikes[j]+1):
+			b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
+			templist.append(b1)
+		for m in range(1,no_pedalbikes[j]+1):
+			b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
+			templist.append(b2)
+		bike_list.append(templist)
 
 #station objects
-for i in range(0,6):
-	stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
+if PROPOSED_STATION:
+	for i in range(0,7):
+		stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
+else:
+	for i in range(0,6):
+		stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
+#==================================================================
 
-#reading duration from the csv file
+##### reading duration from the csv file
 ebike_data= pd.read_csv("ebikepiv.csv")
 pedalbike_data= pd.read_csv("pedalpiv.csv")
 # print(ebike_data)
@@ -340,9 +377,6 @@ for c in pedalbike_data.columns[1:]:
 ebike_duration_matrix = ebike_data.loc[:, ebike_data.columns != 'startnode'].values
 pedal_duration_matrix = pedalbike_data.loc[:, pedalbike_data.columns != 'startnode'].values
 
-
-
-#==================================================================
 
 def main():
 	print("Starting simulation")
@@ -377,20 +411,38 @@ def main():
 
 			#assign customer to  start station and end station based on priors
 			cust_start_node = random.uniform(0,1)
-			cust_start_node_cdf = [0.162753,0.338462,0.507693,0.689070,0.800811,1]
-
-			if cust_start_node <=cust_start_node_cdf[0]:
-				start_station_id= 31104
-			elif cust_start_node > cust_start_node_cdf[0] and cust_start_node <= cust_start_node_cdf[1] :
-				start_station_id= 31110
-			elif cust_start_node > cust_start_node_cdf[1] and cust_start_node <= cust_start_node_cdf[2] :
-				start_station_id= 31113
-			elif cust_start_node > cust_start_node_cdf[2] and cust_start_node <= cust_start_node_cdf[3] :
-				start_station_id= 31114
-			elif cust_start_node > cust_start_node_cdf[3] and cust_start_node <= cust_start_node_cdf[4] :
-				start_station_id= 31116
-			elif cust_start_node > cust_start_node_cdf[4] and cust_start_node <= cust_start_node_cdf[5] :
-				start_station_id= 31296
+			if PROPOSED_STATION:
+				pass #TODO
+			else:
+				cust_start_node_cdf = [0.162753,0.338462,0.507693,0.689070,0.800811,1]
+			if PROPOSED_STATION:
+				if cust_start_node <=cust_start_node_cdf[0]:
+					start_station_id= 31104
+				elif cust_start_node > cust_start_node_cdf[0] and cust_start_node <= cust_start_node_cdf[1] :
+					start_station_id= 31110
+				elif cust_start_node > cust_start_node_cdf[1] and cust_start_node <= cust_start_node_cdf[2] :
+					start_station_id= 31113
+				elif cust_start_node > cust_start_node_cdf[2] and cust_start_node <= cust_start_node_cdf[3] :
+					start_station_id= 31114
+				elif cust_start_node > cust_start_node_cdf[3] and cust_start_node <= cust_start_node_cdf[4] :
+					start_station_id= 31116
+				elif cust_start_node > cust_start_node_cdf[4] and cust_start_node <= cust_start_node_cdf[5] :
+					start_station_id= 31296
+				elif cust_start_node > cust_start_node_cdf[5] and cust_start_node <= cust_start_node_cdf[6] :
+					start_station_id= 10000
+			else:
+				if cust_start_node <=cust_start_node_cdf[0]:
+					start_station_id= 31104
+				elif cust_start_node > cust_start_node_cdf[0] and cust_start_node <= cust_start_node_cdf[1] :
+					start_station_id= 31110
+				elif cust_start_node > cust_start_node_cdf[1] and cust_start_node <= cust_start_node_cdf[2] :
+					start_station_id= 31113
+				elif cust_start_node > cust_start_node_cdf[2] and cust_start_node <= cust_start_node_cdf[3] :
+					start_station_id= 31114
+				elif cust_start_node > cust_start_node_cdf[3] and cust_start_node <= cust_start_node_cdf[4] :
+					start_station_id= 31116
+				elif cust_start_node > cust_start_node_cdf[4] and cust_start_node <= cust_start_node_cdf[5] :
+					start_station_id= 31296
 			print("start_station_id: {}".format(start_station_id))
 
 			#assign end station based on joint probabilities
