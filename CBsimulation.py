@@ -10,13 +10,14 @@ import matplotlib.pyplot as plt
 PROPOSED_STATION = False
 
 class customer:
-	def __init__(self,cust_id,cust_type,bike,start_time, end_time,duration,start_station_id,end_station_id,satisfaction ):
+	def __init__(self,cust_id,cust_type,bike,start_time, end_time,duration,start_station_id,start_station_id,end_station_id,satisfaction ):
 		self.cust_id= cust_id
 		self.cust_type= cust_type
 		self.bike = bike #assigns the bike object to the customer
 		self.start_time= start_time
 		self.end_time= end_time
 		self.duration=duration
+		self.perm_start_station_id = start_station_id
 		self.start_station_id= start_station_id
 		self.end_station_id= end_station_id
 		self.satisfaction = satisfaction #0 means satisfied, 1 means dissatisfied
@@ -43,25 +44,25 @@ class station:
 		print("updating the bikes in the station")
 
 		if kind == "pickup":
+			self.no_empty_docks+=1
 			if biketype_assigned=="pedalbike":
-				self.no_pedalbikes-=self.no_pedalbikes
+				self.no_pedalbikes-=1
 			else:
-				self.no_ebikes-=self.no_ebikes
+				self.no_ebikes-=1
 
-			self.no_empty_docks+=self.no_empty_docks
-
+			
 		#removing bike from the station's bikelist is done in give_bike function
 		else: #return a bike
+			self.no_empty_docks-=1
 			if biketype_assigned=="pedalbike":
-				self.no_pedalbikes+=self.no_pedalbikes
+				self.no_pedalbikes+=1
+
 			else:
-				self.no_ebikes+=self.no_ebikes
-
-			self.no_empty_docks-=self.no_empty_docks
-
+				self.no_ebikes+=1
 
 
 def give_end_station(start_station_id):
+
 	if PROPOSED_STATION:
 		station_ids = [31104,31110,31113,31114,31116,31296,10000]
 	else:
@@ -127,7 +128,9 @@ def give_bike(stations_list,start_station_id,pref_bike):
 			for y in stations_list[station_index].bike_list:
 				if y.bike_type=="ebike":
 					stations_list[station_index].bike_list.remove(y)
-					stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					stations_list[station_index].no_ebikes-=1
+					stations_list[station_index].no_empty_docks+= 1
 					y.status="riding"
 					return y
 			
@@ -136,16 +139,21 @@ def give_bike(stations_list,start_station_id,pref_bike):
 			for y in stations_list[station_index].bike_list:
 				if y.bike_type=="pedalbike":
 					stations_list[station_index].bike_list.remove(y)
-					stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					stations_list[station_index].no_pedalbikes-=1
+					stations_list[station_index].no_empty_docks+= 1
+					
 					y.status="riding"
 					return y
 	else: # preferred bike is pedal bike
-		if stations_list[station_index].no_pedalbikes !=0:
+		if stations_list[station_index].no_pedalbikes >0:
 			flag=1
 			for y in stations_list[station_index].bike_list:
 				if y.bike_type=="pedalbike":
 					stations_list[station_index].bike_list.remove(y)
-					stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					stations_list[station_index].no_pedalbikes-=1
+					stations_list[station_index].no_empty_docks+= 1
 					y.status="riding"
 					return y
 		else:
@@ -153,7 +161,9 @@ def give_bike(stations_list,start_station_id,pref_bike):
 			for y in stations_list[station_index].bike_list:
 				if y.bike_type=="ebike":
 					stations_list[station_index].bike_list.remove(y)
-					stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					stations_list[station_index].no_ebikes-=stations_list[station_index].no_ebikes
+					stations_list[station_index].no_empty_docks+= stations_list[station_index].no_empty_docks
 					y.status="riding"
 					return y
 
@@ -275,7 +285,6 @@ def return_bike(t,cust):
 					if s.no_empty_docks !=0:
 						print("empty dock available to return")
 						s.bike_list.append(cust.bike)
-						s.no_empty_docks-=1
 						cust.bike.current_station=s.station_id
 						cust.bike.status= "stationary"
 						s.UpdateNumberofBikes(cust.bike.bike_type, "return")
@@ -288,25 +297,25 @@ def return_bike(t,cust):
 								#start station must be the initial end station
 								cust.start_station_id=cust.end_station_id
 								#assign the next station from the list as end station
-								if station_ids.index(ids)+1!=len(station_ids):
-									cust.end_station_id = station_ids[station_ids.index(ids)+1]
-								else:
-									cust.end_station_id = station_ids[0]
+								cust.end_station_id = nearest_node[cust.end_station_id]
 								#change duration
 								cust.duration= give_duration(cust.bike.bike_type,cust.start_station_id,cust.end_station_id)
 								cust.end_time= t + cust.duration
 								cust.satisfaction=1
-								return cust
-	return None
+
+
 
 
 #===============================================================
 print("creating objects--- infrastructure ---")
 if PROPOSED_STATION:
 	station_ids = [31104,31110,31113,31114,31116,31296,10000]
+
 else:
 	station_ids = [31104,31110,31113,31114,31116,31296]
+	next_near= [31296,31116,31104,31116,31114,31104]
 
+nearest_node = {x:y for x,y in list(zip(station_ids,next_near)}
 stations_list = []
 bike_list =[]
 
@@ -315,20 +324,18 @@ if PROPOSED_STATION:
 else:
 	tot_bikes= 72
 #dummy numbers
-
-
 if PROPOSED_STATION:
 	no_pedalbikes= 	[11,1,10,3,16,12,9]
 	no_ebikes  =	[2,2,2,2,2,2,1]
 	no_empty_docks= [14,13,19,19,12,10,5]
 	station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
-print(station_capacities)
+	print(station_capacities)
 else:
 	no_pedalbikes= 	[11,1,10,3,16,12]
 	no_ebikes  =	[2,2,2,2,2,2]
-	no_empty_docks= [14,13,19,19,12,10]
+	no_empty_docks= [14,13,1,19,12,1]
 	station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
-print(station_capacities)
+	print(station_capacities)
 
 # bike objects
 if PROPOSED_STATION:
@@ -376,6 +383,7 @@ for c in pedalbike_data.columns[1:]:
 #print("after \n ", pedalbike_data)
 ebike_duration_matrix = ebike_data.loc[:, ebike_data.columns != 'startnode'].values
 pedal_duration_matrix = pedalbike_data.loc[:, pedalbike_data.columns != 'startnode'].values
+
 
 
 def main():
@@ -461,9 +469,13 @@ def main():
 			#duration based on fixed average durations between stations
 			trip_duration= give_duration(bike_assigned.bike_type,start_station_id,end_station_id)
 			print("trip_duration is {}".format(trip_duration))
+			
 
 			#update customer object with all the calculated fields
-			customer_list.append(customer(tot_customers+c,cust_type,bike_assigned,t,t+trip_duration,trip_duration,start_station_id,end_station_id,0))
+			temp_cust= customer(tot_customers+c,cust_type,bike_assigned,t,t,t+trip_duration,trip_duration,start_station_id,end_station_id,0)
+			customer_list.append(temp_cust)
+			print("cust_id is {}".format(temp_cust.cust_id))
+			print("end_time is {}".format(temp_cust.end_time))
 
 			#update bike in start station
 			#call update bike function for the station object
@@ -478,11 +490,16 @@ def main():
 		if len(customer_list) > 0:
 			for cust in customer_list:
 				if cust.end_time == t:
-					# print("=============================")
+					print("=============================")
 					# print("time: {}  ".format(t))
 					# print("cust id {}".format(cust.cust_id))
+					print("time is {}".format(t))
 					print("customer ending trip")
+					print("cust_id is {}".format(cust.cust_id))
+					print("start_station_id {}".format(cust.start_station_id))
+					print("end_station_id {}".format(cust.end_station_id))
 					end_trip_customer.append(cust)
+					print("==============================")
 
 
 		#end trip- check if there are empty docks, else direct to nearest station with empty dock
