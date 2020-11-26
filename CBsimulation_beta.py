@@ -85,7 +85,7 @@ def give_start_station(system):
 		elif cust_start_node > cust_start_node_cdf[5] and cust_start_node <= cust_start_node_cdf[6] :
 			start_station_id= 10000
 	else:
-		if system= "in_system":
+		if (system= "in_system"):
 
 			if cust_start_node <=cust_start_node_cdf[0]:
 				start_station_id= 31104
