@@ -204,7 +204,7 @@ def give_bike(start_station_id,pref_bike):
 					y.status="riding"
 					return y
 			
-		else:
+		else: #try to assign pedal bike if ebike is unavailable
 			if stations_list[station_index].no_pedalbikes > 0 and len(stations_list[station_index].bike_list)>0:
 				flag=0
 				for y in stations_list[station_index].bike_list:
@@ -460,7 +460,42 @@ def return_bike(t,cust):
 								cust.end_time= t + cust.duration
 								cust.satisfaction=1
 
+def print_station():
+	print("station resources")
+	for x in stations_list:
+		print("=========================")
+		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format(x.capacity, x.station_id, x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
 
+
+def print_customer():
+	diss=0
+	duration=[]
+
+	for x in customer_list:
+		if(x.satisfaction== 1):
+			diss+=1
+		else:
+			duration.append(x.duration)
+	print("no customers who couldn't return bike to intended station {} ".format(diss))
+			
+
+#==============================================================================
+def give_cust_type():
+	# casual vs member (0.2810 vs 0.7189)
+	casual_member= random.uniform(0,1)
+	if casual_member>= 0.718929:
+		cust_type= "casual"
+	else:
+		cust_type ="member"
+	return cust_type
+
+def give_bike_type():
+	pedal_ebike= random.uniform(0,1)
+	if pedal_ebike>= 0.881335:
+		pref_bike= "pedal"
+	else:
+		pref_bike ="ebike"
+	return pref_bike
 #===============================================================
 print("creating objects--- infrastructure ---")
 if PROPOSED_STATION:
@@ -539,24 +574,6 @@ for c in pedalbike_data.columns[1:]:
 ebike_duration_matrix = ebike_data.loc[:, ebike_data.columns != 'startnode'].values
 pedal_duration_matrix = pedalbike_data.loc[:, pedalbike_data.columns != 'startnode'].values
 
-#==============================================================================
-def give_cust_type():
-	# casual vs member (0.2810 vs 0.7189)
-	casual_member= random.uniform(0,1)
-	if casual_member>= 0.718929:
-		cust_type= "casual"
-	else:
-		cust_type ="member"
-	return cust_type
-
-def give_bike_type():
-	pedal_ebike= random.uniform(0,1)
-	if pedal_ebike>= 0.881335:
-		pref_bike= "pedal"
-	else:
-		pref_bike ="ebike"
-	return pref_bike
-
 def main():
 
 	print("Starting simulation")
@@ -605,22 +622,29 @@ def main():
 
 			#check if preferred bike exists in station else assign alternate bike
 			bike_assigned= give_bike(start_station_id,pref_bike)
-			print("bike assigned is {}".format(bike_assigned.bike_type))
-			#duration based on fixed average durations between stations
-			trip_duration= give_duration(bike_assigned.bike_type,start_station_id,end_station_id)
-			print("trip_duration is {}".format(trip_duration))
 			
-			#update customer object with all the calculated fields
-			perm_start_station_id = start_station_id
+			if (bike_assigned != None):
+				
+				print("bike assigned is {}".format(bike_assigned.bike_type))
+				#duration based on fixed average durations between stations
+				trip_duration= give_duration(bike_assigned.bike_type,start_station_id,end_station_id)
+				print("trip_duration is {}".format(trip_duration))
 			
-			cust_id_temp = tot_customers+c
-			temp_cust= customer(cust_id_temp,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
-			if (temp_cust.bike != None):
+				#update customer object with all the calculated fields
+				perm_start_station_id = start_station_id
+				temp_cust= customer(cust_id_temp,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+				print("cust_id is {}".format(temp_cust.cust_id))
+				print("end_time is {}".format(temp_cust.end_time))
+				cust_id_temp = tot_customers+c
 				customer_list.append(temp_cust)
+
 			else:
+				trip_duration= 5000 #trip duration set to 5000 for bike unassigned customers
+				perm_start_station_id = start_station_id
+				temp_cust= customer(cust_id_temp,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
 				kickedout_cust.append(temp_cust)
-			print("cust_id is {}".format(temp_cust.cust_id))
-			print("end_time is {}".format(temp_cust.end_time))
+				print("customer moved out of system due to unavailable bikes in the station")
+			
 
 		####### for customers starting outside and ending inside########
 		#create in system customer objects based on poisson arrival
@@ -657,6 +681,7 @@ def main():
 			end_station_id= 70
 			cust_id_temp_last = cust_id_temp_new + q
 			temp_bike_assigned = give_bike(start_station_id,pref_bike_type)
+
 			temp_cust = customer(cust_id_temp_last,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
 			if (temp_cust.bike != None):
 				customer_list.append(temp_cust)
@@ -696,9 +721,20 @@ def main():
 
 
 		tot_customers= tot_customers+cust_at_time_insys + cust_at_time_in_out +cust_at_time_out_in
+	print("=================================================================================")
+	print("=================================================================================")
+	print("simulation complete")
+	print("=================================================================================")
+	print("=================================================================================")
 	print("total customers= {}".format(tot_customers))
-
-
+	print("tot cust who finished the ride successfully {}".format(len(customer_list)))
+	print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
+	print("=================================================================================")
+	print("=================================================================================")
+	print_station()
+	print_customer()
+	print("=================================================================================")
+	print("=================================================================================")
 if __name__ == "__main__":
 	main()
 
