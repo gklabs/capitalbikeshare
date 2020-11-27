@@ -44,16 +44,15 @@ class station:
 
 		print("updating the bikes in the station")
 
-		if kind == "pickup":
+		if kind == "pickup" :
 			self.no_empty_docks+=1
 			if biketype_assigned=="pedalbike":
 				self.no_pedalbikes-=1
 			else:
 				self.no_ebikes-=1
-
 			
 		#removing bike from the station's bikelist is done in give_bike function
-		else: #return a bike
+		elif(self.no_empty_docks <= self.capacity): #return a bike
 			self.no_empty_docks-=1
 			if biketype_assigned=="pedalbike":
 				self.no_pedalbikes+=1
@@ -198,9 +197,9 @@ def give_bike(start_station_id,pref_bike):
 			for y in stations_list[station_index].bike_list:
 				if y.bike_type=="ebike":
 					stations_list[station_index].bike_list.remove(y)
-					# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
-					stations_list[station_index].no_ebikes-=1
-					stations_list[station_index].no_empty_docks+= 1
+					stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					# stations_list[station_index].no_ebikes-=1
+					# stations_list[station_index].no_empty_docks+= 1
 					y.status="riding"
 					return y
 			
@@ -210,9 +209,9 @@ def give_bike(start_station_id,pref_bike):
 				for y in stations_list[station_index].bike_list:
 					if y.bike_type=="pedalbike":
 						stations_list[station_index].bike_list.remove(y)
-						# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
-						stations_list[station_index].no_pedalbikes-=1
-						stations_list[station_index].no_empty_docks+= 1
+						stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+						# stations_list[station_index].no_pedalbikes-=1
+						# stations_list[station_index].no_empty_docks+= 1
 						
 						y.status="riding"
 						return y
@@ -225,9 +224,9 @@ def give_bike(start_station_id,pref_bike):
 			for y in stations_list[station_index].bike_list:
 				if y.bike_type=="pedalbike":
 					stations_list[station_index].bike_list.remove(y)
-					# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
-					stations_list[station_index].no_pedalbikes-=1
-					stations_list[station_index].no_empty_docks+= 1
+					stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+					# stations_list[station_index].no_pedalbikes-=1
+					# stations_list[station_index].no_empty_docks+= 1
 					y.status="riding"
 					return y
 		else:
@@ -236,9 +235,9 @@ def give_bike(start_station_id,pref_bike):
 				for y in stations_list[station_index].bike_list:
 					if y.bike_type=="ebike":
 						stations_list[station_index].bike_list.remove(y)
-						# stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
-						stations_list[station_index].no_ebikes-=stations_list[station_index].no_ebikes
-						stations_list[station_index].no_empty_docks+= stations_list[station_index].no_empty_docks
+						stations_list[station_index].UpdateNumberofBikes(y.bike_type,"pickup")
+						# stations_list[station_index].no_ebikes-=1
+						# stations_list[station_index].no_empty_docks+= 1
 						y.status="riding"
 						return y
 			else:
@@ -464,7 +463,7 @@ def print_station():
 	print("station resources")
 	for x in stations_list:
 		print("=========================")
-		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format(x.capacity, x.station_id, x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
+		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format( x.station_id, x.capacity,x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
 
 
 def print_customer():
@@ -603,7 +602,7 @@ def main():
 
 		#create in system customer objects based on poisson arrival
 		cust_at_time_insys = give_customers(t,arrival_times)
-		cust_id_temp= 0
+		
 		# for every customer spawning new in the system and ending ride within system start the trip
 		for c in range(1,cust_at_time_insys+1):
 			print("==================================")
@@ -632,7 +631,7 @@ def main():
 			
 				#update customer object with all the calculated fields
 				perm_start_station_id = start_station_id
-				temp_cust= customer(cust_id_temp,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+				temp_cust= customer(len(customer_list)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
 				print("cust_id is {}".format(temp_cust.cust_id))
 				print("end_time is {}".format(temp_cust.end_time))
 				cust_id_temp = tot_customers+c
@@ -641,7 +640,7 @@ def main():
 			else:
 				trip_duration= 5000 #trip duration set to 5000 for bike unassigned customers
 				perm_start_station_id = start_station_id
-				temp_cust= customer(cust_id_temp,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+				temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
 				kickedout_cust.append(temp_cust)
 				print("customer moved out of system due to unavailable bikes in the station")
 			
@@ -649,16 +648,16 @@ def main():
 		####### for customers starting outside and ending inside########
 		#create in system customer objects based on poisson arrival
 		cust_at_time_out_in = give_customers(t,startout_end_in_arrival_times)
-		cust_id_temp_new = cust_id_temp
+	
 		for p in range(1,cust_at_time_out_in+1):
 			system = "out_in"
 			perm_start_station_id= start_station_id =70
 			end_station_id= give_end_station(start_station_id,system)
 			cust_type= give_cust_type()
 			bike_type=give_bike_type()
-			cust_id_temp_new = cust_id_temp + p
+			
 			temp_bike_assigned = bike(1000+p, start_station_id,bike_type, "riding")
-			temp_cust = customer(cust_id_temp_new,system,cust_type,temp_bike_assigned,10000,t,10000,perm_start_station_id,start_station_id,end_station_id,0)
+			temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,10000,t,10000,perm_start_station_id,start_station_id,end_station_id,0)
 			
 			if (temp_cust.bike != None):
 				customer_list.append(temp_cust)
@@ -679,13 +678,14 @@ def main():
 			pref_bike_type=give_bike_type()
 			cust_type=give_cust_type()
 			end_station_id= 70
-			cust_id_temp_last = cust_id_temp_new + q
 			temp_bike_assigned = give_bike(start_station_id,pref_bike_type)
 
-			temp_cust = customer(cust_id_temp_last,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
-			if (temp_cust.bike != None):
+			
+			if (temp_bike_assigned != None):
+				temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
 				customer_list.append(temp_cust)
 			else:
+				temp_cust = customer(len(kickedout_cust)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
 				kickedout_cust.append(temp_cust)
 
 			print("===========================================")
