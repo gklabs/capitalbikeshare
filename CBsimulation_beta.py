@@ -262,10 +262,8 @@ def truncate(n, decimals=0):
 	multiplier = 10 ** decimals
 	return int(n * multiplier) / multiplier
 #===============================================================
-'''
-implementing thinning algorithm
 
-'''
+#implementing thinning algorithm
 def give_arrivals():
 
 	# variable inputs
@@ -449,16 +447,30 @@ def print_station(stations_list):
 		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format( x.station_id, x.capacity,x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
 
 
-def print_customer(customer_list):
+def print_customer(customer_list,kickedout_cust):
 	diss=0
 	duration=[]
-
+	revenue =0
+	ecoloss=0
 	for x in customer_list:
+		if x.bike.bike_type == "ebike":
+			revenue+=3
+		else:
+			revenue+=2
+
 		if(x.satisfaction== 1):
 			diss+=1
 		else:
 			duration.append(x.duration)
 	print("no customers who couldn't return bike to intended station {} ".format(diss))
+	
+	for x in kickedout_cust:
+		if x.bike.bike_type=="pedalbike":
+			ecoloss+= 2
+		else:
+			ecoloss+= 3
+
+	print("Revenue: {}\n Economic Loss {}".format(revenue,ecoloss))
 			
 
 #==============================================================================
@@ -488,6 +500,7 @@ def create_dataset(customer_list,kickedout_customer):
 	for y in kickedout_customer:
 		moved_out_data = moved_out_data.append({"cust_id":x.cust_id,"system":x.system,"cust_type":x.cust_type,"bike_type":x.bike.bike_type,"start_time": x.start_time, "end_time": x.end_time,"duration": x.duration,"perm_start_station_id": x.perm_start_station_id,"start_station_id":x.start_station_id,"end_station_id":x.end_station_id,"satisfaction":x.satisfaction},  ignore_index=True)
 	
+
 	return sim_data,moved_out_data
 
 
@@ -636,6 +649,7 @@ def main():
 				else:
 					trip_duration= 5000 #trip duration set to 5000 for bike unassigned customers
 					perm_start_station_id = start_station_id
+					bike_assigned = bike(9000+c, start_station_id,pref_bike, "unassigned")
 					temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
 					kickedout_cust.append(temp_cust)
 					# print("customer moved out of system due to unavailable bikes in the station")
@@ -681,7 +695,8 @@ def main():
 					temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
 					customer_list.append(temp_cust)
 				else:
-					temp_cust = customer(len(kickedout_cust)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
+					bike_assigned = bike(9500+q, start_station_id,pref_bike_type, "unassigned")
+					temp_cust = customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
 					kickedout_cust.append(temp_cust)
 
 				# print("===========================================")
@@ -721,7 +736,7 @@ def main():
 		print("=================================================================================")
 		print("=================================================================================")
 		print_station(stations_list)
-		print_customer(customer_list)
+		print_customer(customer_list,kickedout_cust)
 		print("total customers= {}".format(tot_customers))
 		print("tot cust who finished the ride successfully {}".format(len(customer_list)))
 		print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
