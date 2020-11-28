@@ -42,7 +42,7 @@ class station:
 
 	def UpdateNumberofBikes(self,biketype_assigned,kind):
 
-		print("updating the bikes in the station")
+		# print("updating the bikes in the station")
 
 		if kind == "pickup" :
 			self.no_empty_docks+=1
@@ -153,7 +153,7 @@ def give_end_station(start_station_id,system):
 			end_station_id= 31116
 		elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
 			end_station_id= 31296
-		print("end station_id is {}".format(end_station_id))
+		# print("end station_id is {}".format(end_station_id))
 	
 	elif(system=="out_in"):
 		cust_end_node_cdf = [0.18627,0.441064,0.52293,0.700426,0.869928,1]
@@ -169,21 +169,36 @@ def give_end_station(start_station_id,system):
 			end_station_id= 31116
 		elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
 			end_station_id= 31296
-		print("end station_id is {}".format(end_station_id))
+		# print("end station_id is {}".format(end_station_id))
 	return end_station_id
 
 # This function gives the duration based on bike type, the start and end stations
-def give_duration(bike_type,start_station_id,end_station_id):
+def give_duration(station_ids,bike_type,start_station_id,end_station_id):
 	
 	start_index= station_ids.index(start_station_id)
 	end_index = station_ids.index(end_station_id)
+
+	##### reading duration from the csv file
+	ebike_data= pd.read_csv("ebikepiv.csv")
+	pedalbike_data= pd.read_csv("pedalpiv.csv")
+	# print(ebike_data)
+	# print(pedalbike_data)
+	for c in ebike_data.columns[1:]:
+		ebike_data[c] = [truncate(x/60) for x in ebike_data[c]]
+	for c in pedalbike_data.columns[1:]:
+		pedalbike_data[c] = [truncate(x/60) for x in pedalbike_data[c]]
+	#print("after \n ", ebike_data)
+	#print("after \n ", pedalbike_data)
+	ebike_duration_matrix = ebike_data.loc[:, ebike_data.columns != 'startnode'].values
+	pedal_duration_matrix = pedalbike_data.loc[:, pedalbike_data.columns != 'startnode'].values
+
 
 	if bike_type == "pedalbike":
 		return pedal_duration_matrix[start_index][end_index]
 	else:
 		return ebike_duration_matrix[start_index][end_index]
 
-def give_bike(start_station_id,pref_bike):
+def give_bike(stations_list,start_station_id,pref_bike):
 
 	# check if preferred bike exists in start station
 	for x in stations_list:
@@ -216,7 +231,7 @@ def give_bike(start_station_id,pref_bike):
 						y.status="riding"
 						return y
 			else:
-				print("no bikes available. Bike not assigned")
+				# print("no bikes available. Bike not assigned")
 				return None
 	else: # preferred bike is pedal bike
 		if stations_list[station_index].no_pedalbikes >0 and len(stations_list[station_index].bike_list)>0:
@@ -241,7 +256,7 @@ def give_bike(start_station_id,pref_bike):
 						y.status="riding"
 						return y
 			else:
-				print("no bikes available. Bike not assigned")
+				# print("no bikes available. Bike not assigned")
 				return None
 def truncate(n, decimals=0):
 	multiplier = 10 ** decimals
@@ -253,88 +268,57 @@ implementing thinning algorithm
 '''
 def give_arrivals():
 
+	# variable inputs
 	SEED = None
-	MAXSEEDSEQ = 100000
-	u1count = 0
 	counter = 0
-
 	# *** OUTPUT: customer_times[] contains customer arrival times tuple (customer #, arrival time (hr))
 	## code below
 	random.seed(SEED)
-	U1 = [random.uniform(0,1) for i in range(MAXSEEDSEQ)] # contains sequence of random #s U(0,1)
-	poisson1rate = [0] # stores uniform poisson arrival rates lambda == 1
-
-	#define inverse transform functions here
-	def eq1(x): return (x/0.258)
-	def eq2(x): return (x+3.95)/1.048
-	def eq3(x): return ((x+2.2)/.874)
-	def eq4(x): return ((x+15)/1.626)
-	def eq5(x): return ((x+7.76)/1.282)
-	def eq6(x): return ((x+30.72)/2.28)
-
 	vhrthin = pd.read_csv("thinningdata.csv")
 	dfoos = pd.read_csv("outofsystems.csv")
+	## with original thinning algo
+	maxlambda = np.max(vhrthin.perhr)+.3
+	# print("max lambda: ", maxlambda)
+	#generate first customer arrival
+	u1 = random.uniform(0,1)
+	lambda0 = vhrthin.loc[vhrthin.index == 0, 'perhr'].iloc[0]
+	cust1 = -1/lambda0*np.log(u1)
+	vtime = cust1
+	cust_total = []
+	cust_total.append(vtime)
+	while vtime < 24:
+		u1 = random.uniform(0,1)
+		vtime = vtime - (1/maxlambda)*np.log(u1)
+		cust_total.append(vtime)
+		if len(cust_total) > 1000: 
+			break
 
+	cust_total.pop(-1) #pop inplace=True by default
+	cust_ftotal = []
+	customer_startinendin = []
+	ncust = 1
+	#thin arrival times here
+	for x in range(len(cust_total)):
+		u2 = random.uniform(0,1)
+		tlambda = np.floor(cust_total[x])
+		tlambda = vhrthin.loc[vhrthin.hr == tlambda,'perhr'].iloc[0]
+		if u2 <= tlambda / maxlambda:
+			cust_ftotal.append(cust_total[x])
+			customer_startinendin.append((ncust, cust_total[x]))
+			ncust +=1
 
-	for i in range(24):
-		test = poisson1rate[i] - np.log(U1[counter])
-		while (test >= 21.72 and eq6(test) >= 24) or test >= 24: # trim domain/range [0,24) of poisson generated value
-			counter += 1
-			test = poisson1rate[i] - np.log(U1[counter])
-
-		poisson1rate.append(test)
-		counter += 1
-
-	poisson1rate.pop(0) # in place
-
-	#cdf inv equations
 	'''
-	eq1: y=.214x + 0.22 inv_range: (0,1.29) [0-5] eq1
-
-	eq2: y=1.048x - 3.95 range: 1.29-6.53 [5-10] eq2
-
-	eq3: y=0.874x - 2.2 range: 6.53-12.65 [10-17] eq3 
-
-	eq4: y=1.626x - 15 range: 12.65-19.156 [17-21] eq4
-
-	eq5: y= 1.282x - 7.76 range: 19.156 - 21.72 [21-23] eq5
-
-	eq6: y=2.28x - 30.72, range: 21.72-24 [23-24] eq6
+	##print list
+	cust_ftotal = pd.DataFrame(cust_ftotal)
+	cust_ftotal.columns = ["arrival_time"]
+	cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
+	cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
+	(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
 	'''
 
-	flist = [0,eq1,eq2,eq3,eq4,eq5,eq6]
-	# define right sets inverse domain = f(x) range
-	places = [
-		(1.29, '1'),
-		(6.53, '2'),
-		(12.65, '3'),
-		(19.156, '4'),
-		(21.72, '5'),
-		(24, '6')
-	]
-	places.sort() # list must be sorted
-	pos_log = []
-
-	for to_find in poisson1rate:
-		pos = bisect.bisect_right(places, (to_find,))
-		pos_log.append(pos)
-	  #  print ('%s -> %s' % (to_find, places[pos]))
-
-	times_list = [(poisson1rate[x],places[pos_log[x]]) for x in range(len(pos_log))]
-
-	customer = 1
-	customer_times = []
-
-	for x in range(len(times_list)):
-		arrtime = flist[int(times_list[x][1][1])](times_list[x][0])
-		customer_times.append((customer, arrtime))
-		customer += 1
-	# print(customer_times)
-
-	############### start in and end out ################
+	#=============================================
 	## generate ALL t* under maxlambda in 24 hr period and then thin
 	maxlambda = np.max(dfoos.startinendout_lambda)
-
 	#generate first customer arrival
 	u1 = random.uniform(0,1)
 	lambda0 = dfoos.loc[dfoos.index == 0, 'startinendout_lambda'].iloc[0]
@@ -342,7 +326,6 @@ def give_arrivals():
 	vtime = cust1
 	cust_total = []
 	cust_total.append(vtime)
-
 	while vtime < 24:
 		u1 = random.uniform(0,1)
 		vtime = vtime - (1/maxlambda)*np.log(u1)
@@ -374,7 +357,8 @@ def give_arrivals():
 	cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
 	(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
 
-	####################### Start out and end inside the system #####################
+	# print(customer_startoutendin)
+	######################################################
 	## arrival times for those that start OUT network but end INSIDE network (start,end]
 
 	## generate ALL t* under maxlambda in 24 hr period and then thin
@@ -417,10 +401,9 @@ def give_arrivals():
 	cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
 	(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
 
-	# print(customer_startoutendin)
-	######################################################
-	print("in sys {} start in and end out {} start out end in {}".format(len(customer_times),len(customer_startinendout), len(customer_startoutendin)))
-	return customer_times, customer_startinendout,customer_startoutendin
+	
+	# print("in sys {} start in and end out {} start out end in {}".format(len(customer_times),len(customer_startinendout), len(customer_startoutendin)))
+	return customer_startinendin, customer_startinendout,customer_startoutendin
 
 	
 	###################################################
@@ -435,11 +418,11 @@ def give_customers(t,arrival_times):
 
 #===============================================================
 
-def return_bike(t,cust):
+def return_bike(station_ids,stations_list,nearest_node,t,cust):
 	for s in stations_list:
 				if s.station_id==cust.end_station_id:
 					if s.no_empty_docks !=0:
-						print("empty dock available to return")
+						# print("empty dock available to return")
 						s.bike_list.append(cust.bike)
 						cust.bike.current_station=s.station_id
 						cust.bike.status= "stationary"
@@ -447,7 +430,7 @@ def return_bike(t,cust):
 						# end_trip_customer.remove(cust)
 
 					else:
-						print("no empty dock available, redirecting to another station")
+						# print("no empty dock available, redirecting to another station")
 						for ids in station_ids:
 							if cust.end_station_id==ids:
 								#start station must be the initial end station
@@ -455,18 +438,18 @@ def return_bike(t,cust):
 								#assign the next station from the list as end station
 								cust.end_station_id = nearest_node[cust.end_station_id]
 								#change duration
-								cust.duration= give_duration(cust.bike.bike_type,cust.start_station_id,cust.end_station_id)
+								cust.duration= give_duration(station_ids,cust.bike.bike_type,cust.start_station_id,cust.end_station_id)
 								cust.end_time= t + cust.duration
 								cust.satisfaction=1
 
-def print_station():
+def print_station(stations_list):
 	print("station resources")
 	for x in stations_list:
 		print("=========================")
 		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format( x.station_id, x.capacity,x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
 
 
-def print_customer():
+def print_customer(customer_list):
 	diss=0
 	duration=[]
 
@@ -491,250 +474,268 @@ def give_cust_type():
 def give_bike_type():
 	pedal_ebike= random.uniform(0,1)
 	if pedal_ebike>= 0.881335:
-		pref_bike= "pedal"
+		pref_bike= "pedalbike"
 	else:
 		pref_bike ="ebike"
 	return pref_bike
-#===============================================================
-print("creating objects--- infrastructure ---")
-if PROPOSED_STATION:
-	station_ids = [31104,31110,31113,31114,31116,31296,10000]
 
-else:
-	station_ids = [31104,31110,31113,31114,31116,31296]
-	next_near= [31296,31116,31104,31116,31114,31104]
+def create_dataset(customer_list,kickedout_customer):
+	moved_out_data=sim_data = pd.DataFrame(columns= ["cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
+	
+	for x in customer_list:
+		sim_data = sim_data.append({"cust_id":x.cust_id,"system":x.system,"cust_type":x.cust_type,"bike_type":x.bike.bike_type,"start_time": x.start_time, "end_time": x.end_time,"duration": x.duration,"perm_start_station_id": x.perm_start_station_id,"start_station_id":x.start_station_id,"end_station_id":x.end_station_id,"satisfaction":x.satisfaction}, ignore_index=True)
 
-nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
-stations_list = []
-bike_list =[]
-customer_list=[]
-kickedout_cust =[]
+	for y in kickedout_customer:
+		moved_out_data = moved_out_data.append({"cust_id":x.cust_id,"system":x.system,"cust_type":x.cust_type,"bike_type":x.bike.bike_type,"start_time": x.start_time, "end_time": x.end_time,"duration": x.duration,"perm_start_station_id": x.perm_start_station_id,"start_station_id":x.start_station_id,"end_station_id":x.end_station_id,"satisfaction":x.satisfaction},  ignore_index=True)
+	
+	return sim_data,moved_out_data
 
-if PROPOSED_STATION:
-	tot_bikes = 82
-else:
-	tot_bikes= 72
-#dummy numbers
-if PROPOSED_STATION:
-	no_pedalbikes= 	[11,1,10,3,16,12,9]
-	no_ebikes  =	[2,2,2,2,2,2,1]
-	no_empty_docks= [14,13,19,19,12,10,5]
-	station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
-	print(station_capacities)
-else:
-	no_pedalbikes= 	[15,15,15,15,16,15]
-	no_ebikes  =	[2,2,2,2,2,2]
-	no_empty_docks= [14,13,19,19,12,15]
-	station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
-	print(station_capacities)
 
-# bike objects
-if PROPOSED_STATION:
-	for j in range(0,7):
-		templist=[]
-		for k in range(1,no_ebikes[j]):
-			b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
-			templist.append(b1)
-		for m in range(1,no_pedalbikes[j]):
-			b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
-			templist.append(b2)
-		bike_list.append(templist)
-else:
-	for j in range(0,6):
-		templist=[]
-		for k in range(1,no_ebikes[j]+1):
-			b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
-			templist.append(b1)
-		for m in range(1,no_pedalbikes[j]+1):
-			b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
-			templist.append(b2)
-		bike_list.append(templist)
 
-#station objects
-if PROPOSED_STATION:
-	for i in range(0,7):
-		stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
-else:
-	for i in range(0,6):
-		stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
-#==================================================================
-
-##### reading duration from the csv file
-ebike_data= pd.read_csv("ebikepiv.csv")
-pedalbike_data= pd.read_csv("pedalpiv.csv")
-# print(ebike_data)
-# print(pedalbike_data)
-for c in ebike_data.columns[1:]:
-	ebike_data[c] = [truncate(x/60) for x in ebike_data[c]]
-for c in pedalbike_data.columns[1:]:
-	pedalbike_data[c] = [truncate(x/60) for x in pedalbike_data[c]]
-#print("after \n ", ebike_data)
-#print("after \n ", pedalbike_data)
-ebike_duration_matrix = ebike_data.loc[:, ebike_data.columns != 'startnode'].values
-pedal_duration_matrix = pedalbike_data.loc[:, pedalbike_data.columns != 'startnode'].values
 
 def main():
 
+	n_runs = 10
+	tot_customers_list= []
+	kickedout_customers_list =[]
+
 	print("Starting simulation")
-	customer_times,customer_startinendout,customer_startoutendin = give_arrivals()
-	arrival_times=[]
-	startin_end_out_arrival_times =[]
-	startout_end_in_arrival_times=[]
-
-	for i in range(len(customer_times)):
-		temp_arrival_time = truncate(customer_times[i][1] * 60)
-		arrival_times.append(temp_arrival_time)
-
-	for i in range(len(customer_startinendout)):
-		temp_arrival_time = truncate(customer_startinendout[i][1] * 60)
-		startin_end_out_arrival_times.append(temp_arrival_time)
-	
-	for i in range(len(customer_startoutendin)):
-		temp_arrival_time = truncate(customer_startoutendin[i][1] * 60)
-		startout_end_in_arrival_times.append(temp_arrival_time)
-
-	#create pre-existing objects
-	#==================================================================
-	tot_customers = 0
-	#start time- simulating every minute
-	for t in range(1,1441):
-		# print("time: {}  ".format(t))
-
-		#create in system customer objects based on poisson arrival
-		cust_at_time_insys = give_customers(t,arrival_times)
+	for run in range(n_runs):
 		
-		# for every customer spawning new in the system and ending ride within system start the trip
-		for c in range(1,cust_at_time_insys+1):
-			print("==================================")
-			print("time: {}  ".format(t))
-			cust_type = give_cust_type()
-			print("customer type is {}".format(cust_type))
-			system= "in_system"
-			start_station_id = give_start_station(system)
-			print("start_station_id: {}".format(start_station_id))
+		customer_list=[]
+		kickedout_cust =[]
 
-			#assign end station based on joint probabilities
-			end_station_id = give_end_station(start_station_id,system)
+		#===============================================================
+		print("creating objects--- infrastructure ---")
+		stations_list = []
+		bike_list =[]
+		if PROPOSED_STATION:
+			station_ids = [31104,31110,31113,31114,31116,31296,10000]
 
-			#assign bike preference based on priors
-			pref_bike = give_bike_type()
 
-			#check if preferred bike exists in station else assign alternate bike
-			bike_assigned= give_bike(start_station_id,pref_bike)
-			
-			if (bike_assigned != None):
-				
-				print("bike assigned is {}".format(bike_assigned.bike_type))
-				#duration based on fixed average durations between stations
-				trip_duration= give_duration(bike_assigned.bike_type,start_station_id,end_station_id)
-				print("trip_duration is {}".format(trip_duration))
-			
-				#update customer object with all the calculated fields
-				perm_start_station_id = start_station_id
-				temp_cust= customer(len(customer_list)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
-				print("cust_id is {}".format(temp_cust.cust_id))
-				print("end_time is {}".format(temp_cust.end_time))
-				cust_id_temp = tot_customers+c
-				customer_list.append(temp_cust)
+		else:
+			station_ids = [31104,31110,31113,31114,31116,31296]
+			next_near= [31296,31116,31104,31116,31114,31104]
+			nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
 
-			else:
-				trip_duration= 5000 #trip duration set to 5000 for bike unassigned customers
-				perm_start_station_id = start_station_id
-				temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
-				kickedout_cust.append(temp_cust)
-				print("customer moved out of system due to unavailable bikes in the station")
-			
+		if PROPOSED_STATION:
+			tot_bikes = 82
+		else:
+			tot_bikes= 72
+		#dummy numbers
+		if PROPOSED_STATION:
+			no_pedalbikes= 	[11,1,10,3,16,12,9]
+			no_ebikes  =	[2,2,2,2,2,2,1]
+			no_empty_docks= [14,13,19,19,12,10,5]
+			station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
+			print(station_capacities)
+		else:
+			no_pedalbikes= 	[15,15,15,15,16,15]
+			no_ebikes  =	[2,2,2,2,2,2]
+			no_empty_docks= [14,13,19,19,12,15]
+			station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
+			print(station_capacities)
 
-		####### for customers starting outside and ending inside########
-		#create in system customer objects based on poisson arrival
-		cust_at_time_out_in = give_customers(t,startout_end_in_arrival_times)
+		# bike objects
+		if PROPOSED_STATION:
+			for j in range(0,7):
+				templist=[]
+				for k in range(1,no_ebikes[j]):
+					b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
+					templist.append(b1)
+				for m in range(1,no_pedalbikes[j]):
+					b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
+					templist.append(b2)
+				bike_list.append(templist)
+		else:
+			for j in range(0,6):
+				templist=[]
+				for k in range(1,no_ebikes[j]+1):
+					b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
+					templist.append(b1)
+				for m in range(1,no_pedalbikes[j]+1):
+					b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
+					templist.append(b2)
+				bike_list.append(templist)
+
+		#station objects
+		if PROPOSED_STATION:
+			for i in range(0,7):
+				stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
+		else:
+			for i in range(0,6):
+				stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
+		#==================================================================
+
 	
-		for p in range(1,cust_at_time_out_in+1):
-			system = "out_in"
-			perm_start_station_id= start_station_id =70
-			end_station_id= give_end_station(start_station_id,system)
-			cust_type= give_cust_type()
-			bike_type=give_bike_type()
+		print("run: {}".format(run))
+		tot_customers = 0
+		cust_at_time_in_out=0
+		cust_at_time_out_in=0
+		customer_times,customer_startinendout,customer_startoutendin = give_arrivals()
+		arrival_times=[]
+		startin_end_out_arrival_times =[]
+		startout_end_in_arrival_times=[]
+
+		for i in range(len(customer_times)):
+			temp_arrival_time = truncate(customer_times[i][1] * 60)
+			arrival_times.append(temp_arrival_time)
+
+		for i in range(len(customer_startinendout)):
+			temp_arrival_time = truncate(customer_startinendout[i][1] * 60)
+			startin_end_out_arrival_times.append(temp_arrival_time)
+		
+		for i in range(len(customer_startoutendin)):
+			temp_arrival_time = truncate(customer_startoutendin[i][1] * 60)
+			startout_end_in_arrival_times.append(temp_arrival_time)
+
+		
+		#==================================================================
+		#start time- simulating every minute
+		
+		for t in range(1,1441):
+			# print("time: {}  ".format(t))
+
+			#create in system customer objects based on poisson arrival
+			cust_at_time_insys = give_customers(t,arrival_times)
 			
-			temp_bike_assigned = bike(1000+p, start_station_id,bike_type, "riding")
-			temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,10000,t,10000,perm_start_station_id,start_station_id,end_station_id,0)
-			
-			if (temp_cust.bike != None):
-				customer_list.append(temp_cust)
-			else:
-				kickedout_cust.append(temp_cust)
+			# for every customer spawning new in the system and ending ride within system start the trip
+			for c in range(1,cust_at_time_insys+1):
+				# print("==================================")
+				# print("time: {}  ".format(t))
+				cust_type = give_cust_type()
+				# print("customer type is {}".format(cust_type))
+				system= "in_system"
+				start_station_id = give_start_station(system)
+				# print("start_station_id: {}".format(start_station_id))
 
-			print("===========================================")
-			print("time: {}  ".format(t))
-			print("cust_id is {} \n cust_sys is {} \n cust_type is {}".format(temp_cust.cust_id,temp_cust.system,temp_cust.cust_type))
-			print("end_time is {}".format(temp_cust.end_time))
+				#assign end station based on joint probabilities
+				end_station_id = give_end_station(start_station_id,system)
 
-		####### for customers starting inside and ending outside system########
-		#create in system customer objects based on poisson arrival
-		cust_at_time_in_out = give_customers(t,startin_end_out_arrival_times)
-		for q in range(1,cust_at_time_in_out+1):
-			system= "in_out"
-			perm_start_station_id= start_station_id = give_start_station(system)
-			pref_bike_type=give_bike_type()
-			cust_type=give_cust_type()
-			end_station_id= 70
-			temp_bike_assigned = give_bike(start_station_id,pref_bike_type)
+				#assign bike preference based on priors
+				pref_bike = give_bike_type()
 
-			
-			if (temp_bike_assigned != None):
-				temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
-				customer_list.append(temp_cust)
-			else:
-				temp_cust = customer(len(kickedout_cust)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
-				kickedout_cust.append(temp_cust)
+				#check if preferred bike exists in station else assign alternate bike
+				bike_assigned= give_bike(stations_list,start_station_id,pref_bike)
+				
+				if (bike_assigned != None):
+					
+					# print("bike assigned is {}".format(bike_assigned.bike_type))
+					#duration based on fixed average durations between stations
+					trip_duration= give_duration(station_ids,bike_assigned.bike_type,start_station_id,end_station_id)
+					# print("trip_duration is {}".format(trip_duration))
+				
+					#update customer object with all the calculated fields
+					perm_start_station_id = start_station_id
+					temp_cust= customer(len(customer_list)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+					# print("cust_id is {}".format(temp_cust.cust_id))
+					# print("end_time is {}".format(temp_cust.end_time))
+					
+					customer_list.append(temp_cust)
 
-			print("===========================================")
-			print("time: {}  ".format(t))
-			print("cust_id is {} \n cust_sys is {} \n cust_type is {}".format(temp_cust.cust_id,temp_cust.system,temp_cust.cust_type))
-			print("start_time is {} \n end_time is {}".format(temp_cust.start_time,temp_cust.end_time))
+				else:
+					trip_duration= 5000 #trip duration set to 5000 for bike unassigned customers
+					perm_start_station_id = start_station_id
+					temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+					kickedout_cust.append(temp_cust)
+					# print("customer moved out of system due to unavailable bikes in the station")
+				
 
-		#-======================= Ending trip =================================
-			
-		# for customers who are currently in the middle of the trip, check if their trip is over.
-		end_trip_customer=[]
-		if len(customer_list) > 0:
-			for cust in customer_list:
-				if cust.end_time == t:
-					print("=============================")
-					# print("time: {}  ".format(t))
-					# print("cust id {}".format(cust.cust_id))
-					print("time is {}".format(t))
-					print("customer ending trip")
-					print("cust_id is {}".format(cust.cust_id))
-					print("start_station_id {}".format(cust.start_station_id))
-					print("end_station_id {}".format(cust.end_station_id))
-					end_trip_customer.append(cust)
-					print("==============================")
+			####### for customers starting outside and ending inside########
+			#create in system customer objects based on poisson arrival
+			cust_at_time_out_in = give_customers(t,startout_end_in_arrival_times)
+		
+			for p in range(1,cust_at_time_out_in+1):
+				system = "out_in"
+				perm_start_station_id= start_station_id =70
+				end_station_id= give_end_station(start_station_id,system)
+				cust_type= give_cust_type()
+				bike_type=give_bike_type()
+				
+				temp_bike_assigned = bike(1000+p, start_station_id,bike_type, "riding")
+				temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,10000,t,10000,perm_start_station_id,start_station_id,end_station_id,0)
+				
+				if (temp_cust.bike != None):
+					customer_list.append(temp_cust)
+				else:
+					kickedout_cust.append(temp_cust)
+
+				# print("===========================================")
+				# print("time: {}  ".format(t))
+				# print("cust_id is {} \n cust_sys is {} \n cust_type is {}".format(temp_cust.cust_id,temp_cust.system,temp_cust.cust_type))
+				# print("end_time is {}".format(temp_cust.end_time))
+
+			####### for customers starting inside and ending outside system########
+			#create in system customer objects based on poisson arrival
+			cust_at_time_in_out = give_customers(t,startin_end_out_arrival_times)
+			for q in range(1,cust_at_time_in_out+1):
+				system= "in_out"
+				perm_start_station_id= start_station_id = give_start_station(system)
+				pref_bike_type=give_bike_type()
+				cust_type=give_cust_type()
+				end_station_id= 70
+				temp_bike_assigned = give_bike(stations_list,start_station_id,pref_bike_type)
+
+				
+				if (temp_bike_assigned != None):
+					temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
+					customer_list.append(temp_cust)
+				else:
+					temp_cust = customer(len(kickedout_cust)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
+					kickedout_cust.append(temp_cust)
+
+				# print("===========================================")
+				# print("time: {}  ".format(t))
+				# print("cust_id is {} \n cust_sys is {} \n cust_type is {}".format(temp_cust.cust_id,temp_cust.system,temp_cust.cust_type))
+				# print("start_time is {} \n end_time is {}".format(temp_cust.start_time,temp_cust.end_time))
+
+			#-======================= Ending trip =================================
+				
+			# for customers who are currently in the middle of the trip, check if their trip is over.
+			end_trip_customer=[]
+			if len(customer_list) > 0:
+				for cust in customer_list:
+					if cust.end_time == t:
+						# print("=============================")
+						# print("time: {}  ".format(t))
+						# print("cust id {}".format(cust.cust_id))
+						# print("time is {}".format(t))
+						# print("customer ending trip")
+						# print("cust_id is {}".format(cust.cust_id))
+						# print("start_station_id {}".format(cust.start_station_id))
+						# print("end_station_id {}".format(cust.end_station_id))
+						end_trip_customer.append(cust)
+						# print("==============================")
 
 
-		#end trip- check if there are empty docks, else direct to nearest station with empty dock
-		if len(end_trip_customer) > 0:
-			for cust in end_trip_customer:
-				return_bike(t,cust)
-				print("===============================")
+			#end trip- check if there are empty docks, else direct to nearest station with empty dock
+			if len(end_trip_customer) > 0:
+				for cust in end_trip_customer:
+					return_bike(station_ids,stations_list,nearest_node,t,cust)
+					# print("===============================")
+
+			tot_customers= tot_customers+cust_at_time_insys + cust_at_time_in_out +cust_at_time_out_in
+		# print("=================================================================================")
+		# print("=================================================================================")
+		# print("simulation complete")
+		print("=================================================================================")
+		print("=================================================================================")
+		print_station(stations_list)
+		print_customer(customer_list)
+		print("total customers= {}".format(tot_customers))
+		print("tot cust who finished the ride successfully {}".format(len(customer_list)))
+		print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
+		print("=================================================================================")
+		print("=================================================================================")
+		# print_station()
+		
+		print("=================================================================================")
+		print("=================================================================================")
+		sim_data,moved_out_data= create_dataset(customer_list,kickedout_cust)
+		tot_customers_list.append(tot_customers)
+		kickedout_customers_list.append(len(kickedout_cust))
 
 
-
-		tot_customers= tot_customers+cust_at_time_insys + cust_at_time_in_out +cust_at_time_out_in
-	print("=================================================================================")
-	print("=================================================================================")
-	print("simulation complete")
-	print("=================================================================================")
-	print("=================================================================================")
-	print("total customers= {}".format(tot_customers))
-	print("tot cust who finished the ride successfully {}".format(len(customer_list)))
-	print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
-	print("=================================================================================")
-	print("=================================================================================")
-	print_station()
-	print_customer()
-	print("=================================================================================")
-	print("=================================================================================")
 if __name__ == "__main__":
 	main()
 
