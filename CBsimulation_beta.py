@@ -446,17 +446,23 @@ def print_station(stations_list):
 		print("=========================")
 		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format( x.station_id, x.capacity,x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
 
-
-def print_customer(customer_list,kickedout_cust):
+def print_metrics(run,customer_list,kickedout_cust):
 	diss=0
+	metrics_tuple =()
 	duration=[]
-	revenue =0
+	revenue =pedalbike_count=ebike_count=member_count=casual_count=0
 	ecoloss=0
 	for x in customer_list:
+		if x.cust_type == "member":
+			member_count+=1
+		else:
+			casual_count+=1
 		if x.bike.bike_type == "ebike":
 			revenue+=3
+			ebike_count+=1
 		else:
 			revenue+=2
+			pedalbike_count+=1
 
 		if(x.satisfaction== 1):
 			diss+=1
@@ -469,8 +475,15 @@ def print_customer(customer_list,kickedout_cust):
 			ecoloss+= 2
 		else:
 			ecoloss+= 3
+	biketypeutil_ebike = ebike_count/len(customer_list)
+	biketypeutil_pedalbike = pedalbike_count/len(customer_list)
+	mem_util = member_count/len(customer_list)
+	casual_util= casual_count/len(customer_list)
 
-	print("Revenue: {}\n Economic Loss {}".format(revenue,ecoloss))
+
+	metrics_tuple = (run,revenue,ecoloss,biketypeutil_ebike,biketypeutil_pedalbike,mem_util,casual_util)
+	# print("Revenue: {}\n Economic Loss {}".format(revenue,ecoloss))
+	return metrics_tuple
 			
 
 #==============================================================================
@@ -508,9 +521,11 @@ def create_dataset(customer_list,kickedout_customer):
 
 def main():
 
-	n_runs = 10
+	n_runs = 2
 	tot_customers_list= []
 	kickedout_customers_list =[]
+	status_list =[]
+	metrics_list=[]
 
 	print("Starting simulation")
 	for run in range(n_runs):
@@ -524,7 +539,6 @@ def main():
 		bike_list =[]
 		if PROPOSED_STATION:
 			station_ids = [31104,31110,31113,31114,31116,31296,10000]
-
 
 		else:
 			station_ids = [31104,31110,31113,31114,31116,31296]
@@ -579,8 +593,6 @@ def main():
 			for i in range(0,6):
 				stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
 		#==================================================================
-
-	
 		print("run: {}".format(run))
 		tot_customers = 0
 		cust_at_time_in_out=0
@@ -589,7 +601,7 @@ def main():
 		arrival_times=[]
 		startin_end_out_arrival_times =[]
 		startout_end_in_arrival_times=[]
-
+		
 		for i in range(len(customer_times)):
 			temp_arrival_time = truncate(customer_times[i][1] * 60)
 			arrival_times.append(temp_arrival_time)
@@ -708,6 +720,7 @@ def main():
 				
 			# for customers who are currently in the middle of the trip, check if their trip is over.
 			end_trip_customer=[]
+			middleoftrip_cust=[]
 			if len(customer_list) > 0:
 				for cust in customer_list:
 					if cust.end_time == t:
@@ -720,6 +733,8 @@ def main():
 						# print("start_station_id {}".format(cust.start_station_id))
 						# print("end_station_id {}".format(cust.end_station_id))
 						end_trip_customer.append(cust)
+					elif cust.end_time>t:
+						middleoftrip_cust.append(cust)
 						# print("==============================")
 
 
@@ -728,15 +743,20 @@ def main():
 				for cust in end_trip_customer:
 					return_bike(station_ids,stations_list,nearest_node,t,cust)
 					# print("===============================")
-
+			
+			
+			status=(run,t,cust_at_time_insys+cust_at_time_in_out,len(end_trip_customer),len(middleoftrip_cust))
+			status_list.append(status)
 			tot_customers= tot_customers+cust_at_time_insys + cust_at_time_in_out +cust_at_time_out_in
+
 		# print("=================================================================================")
 		# print("=================================================================================")
 		# print("simulation complete")
 		print("=================================================================================")
 		print("=================================================================================")
 		print_station(stations_list)
-		print_customer(customer_list,kickedout_cust)
+		metrics = print_metrics(run,customer_list,kickedout_cust)
+		metrics_list.append(metrics)
 		print("total customers= {}".format(tot_customers))
 		print("tot cust who finished the ride successfully {}".format(len(customer_list)))
 		print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
@@ -747,9 +767,16 @@ def main():
 		print("=================================================================================")
 		print("=================================================================================")
 		sim_data,moved_out_data= create_dataset(customer_list,kickedout_cust)
+		# print(sim_data.head)
+
 		tot_customers_list.append(tot_customers)
 		kickedout_customers_list.append(len(kickedout_cust))
-
+	# print(status_list)
+	status_df = pd.DataFrame.from_records(status_list, columns =['Run', 't','no_cust_start','no_cust_end','no_cust_middle']) 
+	metrics_df= pd.DataFrame.from_records(metrics_list, columns =['run','revenue','ecoloss','biketypeutil_ebike','biketypeutil_pedalbike','mem_util','casual_util']) 
+	
+	print(status_df.head)
+	print(metrics_df.head)
 
 if __name__ == "__main__":
 	main()
