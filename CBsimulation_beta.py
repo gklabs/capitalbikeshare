@@ -267,7 +267,7 @@ def truncate(n, decimals=0):
 def give_arrivals():
 
 	# variable inputs
-	SEED = None
+	SEED = 1002
 	counter = 0
 	# *** OUTPUT: customer_times[] contains customer arrival times tuple (customer #, arrival time (hr))
 	## code below
@@ -521,7 +521,7 @@ def create_dataset(customer_list,kickedout_customer):
 
 def main():
 
-	n_runs = 2
+	n_runs = 1
 	tot_customers_list= []
 	kickedout_customers_list =[]
 	status_list =[]
@@ -545,10 +545,6 @@ def main():
 			next_near= [31296,31116,31104,31116,31114,31104]
 			nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
 
-		if PROPOSED_STATION:
-			tot_bikes = 82
-		else:
-			tot_bikes= 72
 		#dummy numbers
 		if PROPOSED_STATION:
 			no_pedalbikes= 	[11,1,10,3,16,12,9]
@@ -606,14 +602,18 @@ def main():
 			temp_arrival_time = truncate(customer_times[i][1] * 60)
 			arrival_times.append(temp_arrival_time)
 
+		print(arrival_times)
+
 		for i in range(len(customer_startinendout)):
 			temp_arrival_time = truncate(customer_startinendout[i][1] * 60)
 			startin_end_out_arrival_times.append(temp_arrival_time)
 		
+		print(startin_end_out_arrival_times)
+
 		for i in range(len(customer_startoutendin)):
 			temp_arrival_time = truncate(customer_startoutendin[i][1] * 60)
 			startout_end_in_arrival_times.append(temp_arrival_time)
-
+		print(startout_end_in_arrival_times)
 		
 		#==================================================================
 		#start time- simulating every minute
@@ -679,7 +679,7 @@ def main():
 				bike_type=give_bike_type()
 				
 				temp_bike_assigned = bike(1000+p, start_station_id,bike_type, "riding")
-				temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,10000,t,10000,perm_start_station_id,start_station_id,end_station_id,0)
+				temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,10000,t,0,perm_start_station_id,start_station_id,end_station_id,0)
 				
 				if (temp_cust.bike != None):
 					customer_list.append(temp_cust)
@@ -704,11 +704,11 @@ def main():
 
 				
 				if (temp_bike_assigned != None):
-					temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
+					temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,0)
 					customer_list.append(temp_cust)
 				else:
 					bike_assigned = bike(9500+q, start_station_id,pref_bike_type, "unassigned")
-					temp_cust = customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,10000,10000,perm_start_station_id,start_station_id,end_station_id,0)
+					temp_cust = customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,0)
 					kickedout_cust.append(temp_cust)
 
 				# print("===========================================")
@@ -746,6 +746,10 @@ def main():
 			
 			
 			status=(run,t,cust_at_time_insys+cust_at_time_in_out,len(end_trip_customer),len(middleoftrip_cust))
+			# print(status)
+			# for cust in middleoftrip_cust:
+			# 	print(cust.cust_id)
+			
 			status_list.append(status)
 			tot_customers= tot_customers+cust_at_time_insys + cust_at_time_in_out +cust_at_time_out_in
 
@@ -775,8 +779,8 @@ def main():
 	status_df = pd.DataFrame.from_records(status_list, columns =['Run', 't','no_cust_start','no_cust_end','no_cust_middle']) 
 	metrics_df= pd.DataFrame.from_records(metrics_list, columns =['run','revenue','ecoloss','biketypeutil_ebike','biketypeutil_pedalbike','mem_util','casual_util']) 
 	
-	print(status_df.head)
-	print(metrics_df.head)
+	# print(status_df.tail(50))
+	# print(metrics_df.head)
 
 if __name__ == "__main__":
 	main()
