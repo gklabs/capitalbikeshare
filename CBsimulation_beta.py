@@ -6,7 +6,7 @@ import bisect
 import pandas as pd
 import matplotlib.pyplot as plt
 
-#PROPOSED_STATION = True
+# PROPOSED_STATION = True
 PROPOSED_STATION = False
 
 class customer:
@@ -22,7 +22,18 @@ class customer:
 		self.start_station_id= start_station_id
 		self.end_station_id= end_station_id
 		self.satisfaction = satisfaction #0 means satisfied, 1 means dissatisfied
-		
+	def giveinfo(self):
+		print(self.cust_id,
+		self.system,
+		self.cust_type,
+		self.bike.bike_type,
+		self.start_time,
+		self.end_time,
+		self.duration,
+		self.perm_start_station_id ,
+		self.start_station_id,
+		self.end_station_id,
+		self.satisfaction)	
 
 class bike:
 	def __init__(self,bikeid,station_id,bike_type,status):
@@ -264,143 +275,276 @@ def truncate(n, decimals=0):
 #===============================================================
 
 #implementing thinning algorithm
-def give_arrivals():
+def give_arrivals(PROPOSED_STATION):
+	if PROPOSED_STATION == True:
+		vhrthin = pd.read_csv("thinningdata.csv")
+		dfoos = pd.read_csv("oos_newnode.csv")
+		# variable inputs
+		SEED = None
+		MAXSEEDSEQ = 100000
+		u1count = 0
+		counter = 0
 
-	# variable inputs
-	SEED = 1002
-	counter = 0
-	# *** OUTPUT: customer_times[] contains customer arrival times tuple (customer #, arrival time (hr))
-	## code below
-	random.seed(SEED)
-	vhrthin = pd.read_csv("thinningdata.csv")
-	dfoos = pd.read_csv("outofsystems.csv")
-	## with original thinning algo
-	maxlambda = np.max(vhrthin.perhr)+.3
-	# print("max lambda: ", maxlambda)
-	#generate first customer arrival
-	u1 = random.uniform(0,1)
-	lambda0 = vhrthin.loc[vhrthin.index == 0, 'perhr'].iloc[0]
-	cust1 = -1/lambda0*np.log(u1)
-	vtime = cust1
-	cust_total = []
-	cust_total.append(vtime)
-	while vtime < 24:
+		inc_rate = 1.10
+		vhrthin['perhr'] = vhrthin.perhr*inc_rate
+		## thin based on new node
+		## generate ALL t* under maxlambda in 24 hr period and then thin
+		maxlambda = np.max(vhrthin.perhr)+.3
+		# print("max lambda: ", maxlambda)
+		#generate first customer arrival
 		u1 = random.uniform(0,1)
-		vtime = vtime - (1/maxlambda)*np.log(u1)
+		lambda0 = vhrthin.loc[vhrthin.index == 0, 'perhr'].iloc[0]
+		cust1 = -1/lambda0*np.log(u1)
+		vtime = cust1
+		cust_total = []
 		cust_total.append(vtime)
-		if len(cust_total) > 1000: 
-			break
+		while vtime < 24:
+			u1 = random.uniform(0,1)
+			vtime = vtime - (1/maxlambda)*np.log(u1)
+			cust_total.append(vtime)
+			if len(cust_total) > 1000: 
+				break
+		cust_total.pop(-1) #pop inplace=True by default
+		cust_ftotal = []
+		customer_startinendin = []
+		ncust = 1
+		#thin arrival times here
+		for x in range(len(cust_total)):
+			u2 = random.uniform(0,1)
+			tlambda = np.floor(cust_total[x])
+			tlambda = vhrthin.loc[vhrthin.hr == tlambda,'perhr'].iloc[0]
+			if u2 <= tlambda / maxlambda:
+				cust_ftotal.append(cust_total[x])
+				customer_startinendin.append((ncust, cust_total[x]))
+				ncust +=1
 
-	cust_total.pop(-1) #pop inplace=True by default
-	cust_ftotal = []
-	customer_startinendin = []
-	ncust = 1
-	#thin arrival times here
-	for x in range(len(cust_total)):
-		u2 = random.uniform(0,1)
-		tlambda = np.floor(cust_total[x])
-		tlambda = vhrthin.loc[vhrthin.hr == tlambda,'perhr'].iloc[0]
-		if u2 <= tlambda / maxlambda:
-			cust_ftotal.append(cust_total[x])
-			customer_startinendin.append((ncust, cust_total[x]))
-			ncust +=1
-
-	'''
-	##print list
-	cust_ftotal = pd.DataFrame(cust_ftotal)
-	cust_ftotal.columns = ["arrival_time"]
-	cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
-	cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
-	(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
-	'''
-
-	#=============================================
-	## generate ALL t* under maxlambda in 24 hr period and then thin
-	maxlambda = np.max(dfoos.startinendout_lambda)
-	#generate first customer arrival
-	u1 = random.uniform(0,1)
-	lambda0 = dfoos.loc[dfoos.index == 0, 'startinendout_lambda'].iloc[0]
-	cust1 = -1/lambda0*np.log(u1)
-	vtime = cust1
-	cust_total = []
-	cust_total.append(vtime)
-	while vtime < 24:
+		'''
+		##print list
+		cust_ftotal = pd.DataFrame(cust_ftotal)
+		cust_ftotal.columns = ["arrival_time"]
+		cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
+		cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
+		(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
+		'''
+		## arrival times for those that start IN network but end OUTSIDE network [start,end)
+		
+		## generate ALL t* under maxlambda in 24 hr period and then thin
+		maxlambda = np.max(dfoos.startinendout_lambda)
+		#generate first customer arrival
 		u1 = random.uniform(0,1)
-		vtime = vtime - (1/maxlambda)*np.log(u1)
+		lambda0 = dfoos.loc[dfoos.index == 0, 'startinendout_lambda'].iloc[0]
+		cust1 = -1/lambda0*np.log(u1)
+		vtime = cust1
+		cust_total = []
 		cust_total.append(vtime)
-		if len(cust_total) > 1000: 
-			break
+		while vtime < 24:
+			u1 = random.uniform(0,1)
+			vtime = vtime - (1/maxlambda)*np.log(u1)
+			cust_total.append(vtime)
+			if len(cust_total) > 1000: 
+				break
 
-	cust_total.pop(-1) #pop inplace=True by default
-	len(cust_total)
-	cust_ftotal = []
-	customer_startinendout = []
-	ncust = 1
+		cust_total.pop(-1) #pop inplace=True by default
+		len(cust_total)
+		cust_ftotal = []
+		customer_startinendout = []
+		ncust = 1
+		#thin arrival times here
+		for x in range(len(cust_total)):
+			u2 = random.uniform(0,1)
+			tlambda = np.floor(cust_total[x])
+			tlambda = dfoos.loc[dfoos.hour == tlambda,'startinendout_lambda'].iloc[0]
+			if u2 <= tlambda / maxlambda:
+				cust_ftotal.append(cust_total[x])
+				customer_startinendout.append((ncust, cust_total[x]))
+				ncust +=1
 
-	#thin arrival times here
-	for x in range(len(cust_total)):
-		u2 = random.uniform(0,1)
-		tlambda = np.floor(cust_total[x])
-		tlambda = dfoos.loc[dfoos.hour == tlambda,'startinendout_lambda'].iloc[0]
-		if u2 <= tlambda / maxlambda:
-			cust_ftotal.append(cust_total[x])
-			customer_startinendout.append((ncust, cust_total[x]))
-			ncust +=1
+		cust_ftotal = pd.DataFrame(cust_ftotal)
+		cust_ftotal.columns = ["arrival_time"]
+		cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
 
-	cust_ftotal = pd.DataFrame(cust_ftotal)
-	cust_ftotal.columns = ["arrival_time"]
-	cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
+		##print list
+		cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
+		(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
 
-	##print list
-	cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
-	(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
-
-	# print(customer_startoutendin)
-	######################################################
-	## arrival times for those that start OUT network but end INSIDE network (start,end]
-
-	## generate ALL t* under maxlambda in 24 hr period and then thin
-	maxlambda = np.max(dfoos.startoutendin_lambda)
-	#generate first customer arrival
-	u1 = random.uniform(0,1)
-	lambda0 = dfoos.loc[dfoos.index == 0, 'startoutendin_lambda'].iloc[0]
-	cust1 = -1/lambda0*np.log(u1)
-	vtime = cust1
-	cust_total = []
-	cust_total.append(vtime)
-
-	while vtime < 24:
+		## arrival times for those that start OUT network but end INSIDE network (start,end]
+		## generate ALL t* under maxlambda in 24 hr period and then thin
+		maxlambda = np.max(dfoos.startoutendin_lambda)
+		#generate first customer arrival
 		u1 = random.uniform(0,1)
-		vtime = vtime - (1/maxlambda)*np.log(u1)
+		lambda0 = dfoos.loc[dfoos.index == 0, 'startoutendin_lambda'].iloc[0]
+		cust1 = -1/lambda0*np.log(u1)
+		vtime = cust1
+		cust_total = []
 		cust_total.append(vtime)
-		if len(cust_total) > 1000: 
-			break
 
-	cust_total.pop(-1) #pop inplace=True by default
-	len(cust_total)
-	cust_ftotal = []
-	customer_startoutendin = []
-	ncust = 1
-	#thin arrival times here
-	for x in range(len(cust_total)):
-		u2 = random.uniform(0,1)
-		tlambda = np.floor(cust_total[x])
-		tlambda = dfoos.loc[dfoos.hour == tlambda,'startoutendin_lambda'].iloc[0]
-		if u2 <= tlambda / maxlambda:
-			cust_ftotal.append(cust_total[x])
-			customer_startoutendin.append((ncust, cust_total[x]))
-			ncust +=1
+		while vtime < 24:
+			u1 = random.uniform(0,1)
+			vtime = vtime - (1/maxlambda)*np.log(u1)
+			cust_total.append(vtime)
+			if len(cust_total) > 1000: 
+				break
+		cust_total.pop(-1) #pop inplace=True by default
+		len(cust_total)
+		cust_ftotal = []
+		customer_startoutendin = []
+		ncust = 1
 
-	cust_ftotal = pd.DataFrame(cust_ftotal)
-	cust_ftotal.columns = ["arrival_time"]
-	cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
+		#thin arrival times here
+		for x in range(len(cust_total)):
+			u2 = random.uniform(0,1)
+			tlambda = np.floor(cust_total[x])
+			tlambda = dfoos.loc[dfoos.hour == tlambda,'startoutendin_lambda'].iloc[0]
+			if u2 <= tlambda / maxlambda:
+				cust_ftotal.append(cust_total[x])
+				customer_startoutendin.append((ncust, cust_total[x]))
+				ncust +=1
 
-	##print list
-	cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
-	(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
+		cust_ftotal = pd.DataFrame(cust_ftotal)
+		cust_ftotal.columns = ["arrival_time"]
+		cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
 
-	
-	# print("in sys {} start in and end out {} start out end in {}".format(len(customer_times),len(customer_startinendout), len(customer_startoutendin)))
+		##print list
+		cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
+		(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
+
+		
+	else:
+		# variable inputs
+		SEED = 1002
+		counter = 0
+		# *** OUTPUT: customer_times[] contains customer arrival times tuple (customer #, arrival time (hr))
+		## code below
+		random.seed(SEED)
+		vhrthin = pd.read_csv("thinningdata.csv")
+		dfoos = pd.read_csv("outofsystems.csv")
+		## with original thinning algo
+		maxlambda = np.max(vhrthin.perhr)+.3
+		# print("max lambda: ", maxlambda)
+		#generate first customer arrival
+		u1 = random.uniform(0,1)
+		lambda0 = vhrthin.loc[vhrthin.index == 0, 'perhr'].iloc[0]
+		cust1 = -1/lambda0*np.log(u1)
+		vtime = cust1
+		cust_total = []
+		cust_total.append(vtime)
+		while vtime < 24:
+			u1 = random.uniform(0,1)
+			vtime = vtime - (1/maxlambda)*np.log(u1)
+			cust_total.append(vtime)
+			if len(cust_total) > 1000: 
+				break
+
+		cust_total.pop(-1) #pop inplace=True by default
+		cust_ftotal = []
+		customer_startinendin = []
+		ncust = 1
+		#thin arrival times here
+		for x in range(len(cust_total)):
+			u2 = random.uniform(0,1)
+			tlambda = np.floor(cust_total[x])
+			tlambda = vhrthin.loc[vhrthin.hr == tlambda,'perhr'].iloc[0]
+			if u2 <= tlambda / maxlambda:
+				cust_ftotal.append(cust_total[x])
+				customer_startinendin.append((ncust, cust_total[x]))
+				ncust +=1
+
+		'''
+		##print list
+		cust_ftotal = pd.DataFrame(cust_ftotal)
+		cust_ftotal.columns = ["arrival_time"]
+		cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
+		cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
+		(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
+		'''
+
+		#=============================================
+		## generate ALL t* under maxlambda in 24 hr period and then thin
+		maxlambda = np.max(dfoos.startinendout_lambda)
+		#generate first customer arrival
+		u1 = random.uniform(0,1)
+		lambda0 = dfoos.loc[dfoos.index == 0, 'startinendout_lambda'].iloc[0]
+		cust1 = -1/lambda0*np.log(u1)
+		vtime = cust1
+		cust_total = []
+		cust_total.append(vtime)
+		while vtime < 24:
+			u1 = random.uniform(0,1)
+			vtime = vtime - (1/maxlambda)*np.log(u1)
+			cust_total.append(vtime)
+			if len(cust_total) > 1000: 
+				break
+
+		cust_total.pop(-1) #pop inplace=True by default
+		len(cust_total)
+		cust_ftotal = []
+		customer_startinendout = []
+		ncust = 1
+
+		#thin arrival times here
+		for x in range(len(cust_total)):
+			u2 = random.uniform(0,1)
+			tlambda = np.floor(cust_total[x])
+			tlambda = dfoos.loc[dfoos.hour == tlambda,'startinendout_lambda'].iloc[0]
+			if u2 <= tlambda / maxlambda:
+				cust_ftotal.append(cust_total[x])
+				customer_startinendout.append((ncust, cust_total[x]))
+				ncust +=1
+
+		cust_ftotal = pd.DataFrame(cust_ftotal)
+		cust_ftotal.columns = ["arrival_time"]
+		cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
+
+		##print list
+		cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
+		(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
+
+		# print(customer_startoutendin)
+		######################################################
+		## arrival times for those that start OUT network but end INSIDE network (start,end]
+
+		## generate ALL t* under maxlambda in 24 hr period and then thin
+		maxlambda = np.max(dfoos.startoutendin_lambda)
+		#generate first customer arrival
+		u1 = random.uniform(0,1)
+		lambda0 = dfoos.loc[dfoos.index == 0, 'startoutendin_lambda'].iloc[0]
+		cust1 = -1/lambda0*np.log(u1)
+		vtime = cust1
+		cust_total = []
+		cust_total.append(vtime)
+
+		while vtime < 24:
+			u1 = random.uniform(0,1)
+			vtime = vtime - (1/maxlambda)*np.log(u1)
+			cust_total.append(vtime)
+			if len(cust_total) > 1000: 
+				break
+
+		cust_total.pop(-1) #pop inplace=True by default
+		len(cust_total)
+		cust_ftotal = []
+		customer_startoutendin = []
+		ncust = 1
+		#thin arrival times here
+		for x in range(len(cust_total)):
+			u2 = random.uniform(0,1)
+			tlambda = np.floor(cust_total[x])
+			tlambda = dfoos.loc[dfoos.hour == tlambda,'startoutendin_lambda'].iloc[0]
+			if u2 <= tlambda / maxlambda:
+				cust_ftotal.append(cust_total[x])
+				customer_startoutendin.append((ncust, cust_total[x]))
+				ncust +=1
+
+		cust_ftotal = pd.DataFrame(cust_ftotal)
+		cust_ftotal.columns = ["arrival_time"]
+		cust_ftotal['arrhour'] = cust_ftotal.arrival_time.apply(lambda x: np.floor(x))
+
+		##print list
+		cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))
+		(cust_ftotal.groupby('arrhour').agg(vcount = ('arrhour','count'))).sum()
+
+		
+		# print("in sys {} start in and end out {} start out end in {}".format(len(customer_times),len(customer_startinendout), len(customer_startoutendin)))
 	return customer_startinendin, customer_startinendout,customer_startoutendin
 
 	
@@ -504,26 +648,50 @@ def give_bike_type():
 		pref_bike ="ebike"
 	return pref_bike
 
-def create_dataset(customer_list,kickedout_customer):
-	moved_out_data=sim_data = pd.DataFrame(columns= ["cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
+def create_dataset(run,customer_list,kickedout_customer):
+	moved_out_data = pd.DataFrame(columns= ["cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
+	sim_data = pd.DataFrame(columns= ["cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
 	
 	for x in customer_list:
 		sim_data = sim_data.append({"cust_id":x.cust_id,"system":x.system,"cust_type":x.cust_type,"bike_type":x.bike.bike_type,"start_time": x.start_time, "end_time": x.end_time,"duration": x.duration,"perm_start_station_id": x.perm_start_station_id,"start_station_id":x.start_station_id,"end_station_id":x.end_station_id,"satisfaction":x.satisfaction}, ignore_index=True)
 
 	for y in kickedout_customer:
-		moved_out_data = moved_out_data.append({"cust_id":x.cust_id,"system":x.system,"cust_type":x.cust_type,"bike_type":x.bike.bike_type,"start_time": x.start_time, "end_time": x.end_time,"duration": x.duration,"perm_start_station_id": x.perm_start_station_id,"start_station_id":x.start_station_id,"end_station_id":x.end_station_id,"satisfaction":x.satisfaction},  ignore_index=True)
+		moved_out_data = moved_out_data.append({"cust_id":y.cust_id,"system":y.system,"cust_type":y.cust_type,"bike_type":y.bike.bike_type,"start_time": y.start_time, "end_time": y.end_time,"duration": y.duration,"perm_start_station_id": y.perm_start_station_id,"start_station_id":y.start_station_id,"end_station_id":y.end_station_id,"satisfaction":y.satisfaction},  ignore_index=True)
 	
+	full_sim_data = pd.concat([sim_data,moved_out_data])
+	
+	succ_start_station_count = pd.DataFrame(sim_data.perm_start_station_id.value_counts())
+	succ_end_station_count = pd.DataFrame(sim_data.end_station_id.value_counts())
+	
+	fail_start_station_count = pd.DataFrame(moved_out_data.perm_start_station_id.value_counts())
+	fail_end_station_count = pd.DataFrame(moved_out_data.end_station_id.value_counts())
+	
+	# print(succ_start_station_count)
+	# print(succ_end_station_count)
+	# print(fail_start_station_count)
+	# print(fail_end_station_count)
 
-	return sim_data,moved_out_data
 
+	dfs = [succ_start_station_count, succ_end_station_count,fail_start_station_count, fail_end_station_count] 
+	nan_value = 0 
+	# solution 1 (fast) 
+	dock_util = pd.concat(dfs, join='outer', axis=1).fillna(nan_value)
+	
+	dock_util.columns=["succ_start_station_count","succ_end_station_count","fail_start_station_count","fail_end_station_count"]
+	dock_util.insert(loc=0, column='run', value=run)
+	dock_util.insert(loc=1, column='station_id', value=dock_util.index)
+	dock_util.reset_index(drop = True, inplace = True)
+	#add run as a column to the dock_util dataframe
+	print(dock_util)
 
+	return sim_data,moved_out_data, dock_util
 
 
 def main():
 
-	n_runs = 1
+	n_runs = 3
 	tot_customers_list= []
-	kickedout_customers_list =[]
+	kickedout_customers_list=[]
 	status_list =[]
 	metrics_list=[]
 
@@ -538,62 +706,51 @@ def main():
 		stations_list = []
 		bike_list =[]
 		if PROPOSED_STATION:
-			station_ids = [31104,31110,31113,31114,31116,31296,10000]
-
-		else:
-			station_ids = [31104,31110,31113,31114,31116,31296]
-			next_near= [31296,31116,31104,31116,31114,31104]
+			no_stations =7
+			station_ids = [31104,31110,31113,31114,31116,31296,40000]
+			next_near= [31296,31116,31104,31116,31114,31104,31113]
 			nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
-
-		#dummy numbers
-		if PROPOSED_STATION:
-			no_pedalbikes= 	[11,1,10,3,16,12,9]
-			no_ebikes  =	[2,2,2,2,2,2,1]
+			no_pedalbikes= 	[11,1,10,3,16,12,10]
+			no_ebikes  =	[2,2,2,2,2,2,2]
 			no_empty_docks= [14,13,19,19,12,10,5]
 			station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
 			print(station_capacities)
+
 		else:
+			no_stations =6
+			station_ids = [31104,31110,31113,31114,31116,31296]
+			next_near= [31296,31116,31104,31116,31114,31104]
+			nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
 			no_pedalbikes= 	[15,15,15,15,16,15]
 			no_ebikes  =	[2,2,2,2,2,2]
 			no_empty_docks= [14,13,19,19,12,15]
 			station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
 			print(station_capacities)
+		
 
 		# bike objects
-		if PROPOSED_STATION:
-			for j in range(0,7):
-				templist=[]
-				for k in range(1,no_ebikes[j]):
-					b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
-					templist.append(b1)
-				for m in range(1,no_pedalbikes[j]):
-					b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
-					templist.append(b2)
-				bike_list.append(templist)
-		else:
-			for j in range(0,6):
-				templist=[]
-				for k in range(1,no_ebikes[j]+1):
-					b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
-					templist.append(b1)
-				for m in range(1,no_pedalbikes[j]+1):
-					b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
-					templist.append(b2)
-				bike_list.append(templist)
+	
+		for j in range(0,no_stations):
+			templist=[]
+			for k in range(1,no_ebikes[j]):
+				b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
+				templist.append(b1)
+			for m in range(1,no_pedalbikes[j]):
+				b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
+				templist.append(b2)
+			bike_list.append(templist)
+	
 
-		#station objects
-		if PROPOSED_STATION:
-			for i in range(0,7):
-				stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
-		else:
-			for i in range(0,6):
-				stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
+		# station objects
+		for i in range(0,no_stations):
+			stations_list.append(station(station_ids[i],station_capacities[i],no_empty_docks[i],no_ebikes[i],no_pedalbikes[i], bike_list[i]))
+		
 		#==================================================================
 		print("run: {}".format(run))
 		tot_customers = 0
 		cust_at_time_in_out=0
 		cust_at_time_out_in=0
-		customer_times,customer_startinendout,customer_startoutendin = give_arrivals()
+		customer_times,customer_startinendout,customer_startoutendin = give_arrivals(PROPOSED_STATION)
 		arrival_times=[]
 		startin_end_out_arrival_times =[]
 		startout_end_in_arrival_times=[]
@@ -602,18 +759,18 @@ def main():
 			temp_arrival_time = truncate(customer_times[i][1] * 60)
 			arrival_times.append(temp_arrival_time)
 
-		print(arrival_times)
+		# print(arrival_times)
 
 		for i in range(len(customer_startinendout)):
 			temp_arrival_time = truncate(customer_startinendout[i][1] * 60)
 			startin_end_out_arrival_times.append(temp_arrival_time)
 		
-		print(startin_end_out_arrival_times)
+		# print(startin_end_out_arrival_times)
 
 		for i in range(len(customer_startoutendin)):
 			temp_arrival_time = truncate(customer_startoutendin[i][1] * 60)
 			startout_end_in_arrival_times.append(temp_arrival_time)
-		print(startout_end_in_arrival_times)
+		# print(startout_end_in_arrival_times)
 		
 		#==================================================================
 		#start time- simulating every minute
@@ -624,7 +781,7 @@ def main():
 			#create in system customer objects based on poisson arrival
 			cust_at_time_insys = give_customers(t,arrival_times)
 			
-			# for every customer spawning new in the system and ending ride within system start the trip
+			# for every customer spawning IN_SYSTEM system and ending ride within system start the trip
 			for c in range(1,cust_at_time_insys+1):
 				# print("==================================")
 				# print("time: {}  ".format(t))
@@ -659,10 +816,11 @@ def main():
 					customer_list.append(temp_cust)
 
 				else:
-					trip_duration= 5000 #trip duration set to 5000 for bike unassigned customers
+					trip_duration= -1 #trip duration set to -1 for bike unassigned customers
 					perm_start_station_id = start_station_id
 					bike_assigned = bike(9000+c, start_station_id,pref_bike, "unassigned")
-					temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+					temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+					# temp_cust.giveinfo()
 					kickedout_cust.append(temp_cust)
 					# print("customer moved out of system due to unavailable bikes in the station")
 				
@@ -673,18 +831,15 @@ def main():
 		
 			for p in range(1,cust_at_time_out_in+1):
 				system = "out_in"
-				perm_start_station_id= start_station_id =70
+				perm_start_station_id= start_station_id =70 #outside is 70
 				end_station_id= give_end_station(start_station_id,system)
 				cust_type= give_cust_type()
 				bike_type=give_bike_type()
 				
 				temp_bike_assigned = bike(1000+p, start_station_id,bike_type, "riding")
-				temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,10000,t,0,perm_start_station_id,start_station_id,end_station_id,0)
+				temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,-1,t,0,perm_start_station_id,start_station_id,end_station_id,0)
 				
-				if (temp_cust.bike != None):
-					customer_list.append(temp_cust)
-				else:
-					kickedout_cust.append(temp_cust)
+				customer_list.append(temp_cust)
 
 				# print("===========================================")
 				# print("time: {}  ".format(t))
@@ -699,7 +854,7 @@ def main():
 				perm_start_station_id= start_station_id = give_start_station(system)
 				pref_bike_type=give_bike_type()
 				cust_type=give_cust_type()
-				end_station_id= 70
+				end_station_id= 70 
 				temp_bike_assigned = give_bike(stations_list,start_station_id,pref_bike_type)
 
 				
@@ -708,8 +863,9 @@ def main():
 					customer_list.append(temp_cust)
 				else:
 					bike_assigned = bike(9500+q, start_station_id,pref_bike_type, "unassigned")
-					temp_cust = customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,0)
-					kickedout_cust.append(temp_cust)
+					temp_customer = customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,0)
+					# temp_customer.giveinfo()
+					kickedout_cust.append(temp_customer)
 
 				# print("===========================================")
 				# print("time: {}  ".format(t))
@@ -758,27 +914,41 @@ def main():
 		# print("simulation complete")
 		print("=================================================================================")
 		print("=================================================================================")
-		print_station(stations_list)
+		# print_station(stations_list)
 		metrics = print_metrics(run,customer_list,kickedout_cust)
 		metrics_list.append(metrics)
 		print("total customers= {}".format(tot_customers))
 		print("tot cust who finished the ride successfully {}".format(len(customer_list)))
 		print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
+		# print(metrics)
 		print("=================================================================================")
 		print("=================================================================================")
 		# print_station()
 		
 		print("=================================================================================")
 		print("=================================================================================")
-		sim_data,moved_out_data= create_dataset(customer_list,kickedout_cust)
+		sim_data,moved_out_data,dock_util = create_dataset(run, customer_list,kickedout_cust)
+		if run == 0: #for first run, we create dockutil consolidated dataframe
+			dock_util_consolidated = dock_util.copy()
+		else:
+			dock_util_consolidated = dock_util_consolidated.append(dock_util, ignore_index=True)
+
 		# print(sim_data.head)
+		# print(moved_out_data)
+		print("=================================================================================")
+		print("=================================================================================")
+		
+	
+		#print(kickedout_cust)
 
 		tot_customers_list.append(tot_customers)
 		kickedout_customers_list.append(len(kickedout_cust))
 	# print(status_list)
 	status_df = pd.DataFrame.from_records(status_list, columns =['Run', 't','no_cust_start','no_cust_end','no_cust_middle']) 
 	metrics_df= pd.DataFrame.from_records(metrics_list, columns =['run','revenue','ecoloss','biketypeutil_ebike','biketypeutil_pedalbike','mem_util','casual_util']) 
-	
+	# print(dock_util_consolidated.shape)
+	# print(dock_util_consolidated)
+	#print(sim_data)
 	# print(status_df.tail(50))
 	# print(metrics_df.head)
 
