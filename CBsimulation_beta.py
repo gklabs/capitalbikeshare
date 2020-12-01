@@ -6,8 +6,7 @@ import bisect
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# PROPOSED_STATION = True
-PROPOSED_STATION = False
+
 
 class customer:
 	def __init__(self,cust_id,system,cust_type,bike,start_time, end_time,duration,perm_start_station_id,start_station_id,end_station_id,satisfaction ):
@@ -76,24 +75,41 @@ def give_start_station(system):
 	#assign customer to  start station and end station based on priors
 	cust_start_node = random.uniform(0,1)
 	if PROPOSED_STATION:
-		pass #TODO
+		cust_start_node_cdf = [0.1504,0.2847,0.4269,0.5835,0.6847,0.8847,1.0000]
 	else:
 		cust_start_node_cdf = [0.162753,0.338462,0.507693,0.689070,0.800811,1]
 	if PROPOSED_STATION:
-		if cust_start_node <=cust_start_node_cdf[0]:
-			start_station_id= 31104
-		elif cust_start_node > cust_start_node_cdf[0] and cust_start_node <= cust_start_node_cdf[1] :
-			start_station_id= 31110
-		elif cust_start_node > cust_start_node_cdf[1] and cust_start_node <= cust_start_node_cdf[2] :
-			start_station_id= 31113
-		elif cust_start_node > cust_start_node_cdf[2] and cust_start_node <= cust_start_node_cdf[3] :
-			start_station_id= 31114
-		elif cust_start_node > cust_start_node_cdf[3] and cust_start_node <= cust_start_node_cdf[4] :
-			start_station_id= 31116
-		elif cust_start_node > cust_start_node_cdf[4] and cust_start_node <= cust_start_node_cdf[5] :
-			start_station_id= 31296
-		elif cust_start_node > cust_start_node_cdf[5] and cust_start_node <= cust_start_node_cdf[6] :
-			start_station_id= 10000
+		if (system == "in_system"):
+			if cust_start_node <=cust_start_node_cdf[0]:
+				start_station_id= 31104
+			elif cust_start_node > cust_start_node_cdf[0] and cust_start_node <= cust_start_node_cdf[1] :
+				start_station_id= 31110
+			elif cust_start_node > cust_start_node_cdf[1] and cust_start_node <= cust_start_node_cdf[2] :
+				start_station_id= 31113
+			elif cust_start_node > cust_start_node_cdf[2] and cust_start_node <= cust_start_node_cdf[3] :
+				start_station_id= 31114
+			elif cust_start_node > cust_start_node_cdf[3] and cust_start_node <= cust_start_node_cdf[4] :
+				start_station_id= 31116
+			elif cust_start_node > cust_start_node_cdf[4] and cust_start_node <= cust_start_node_cdf[5] :
+				start_station_id= 31296
+			elif cust_start_node > cust_start_node_cdf[5] and cust_start_node <= cust_start_node_cdf[6] :
+				start_station_id= 40000
+		elif(system == "in_out"):
+			cust_start_node_cdf = [0.1645,0.3415,0.4402,0.6003,0.7217,0.8817,1.0000]
+			if cust_start_node <=cust_start_node_cdf[0]:
+				start_station_id= 31104
+			elif cust_start_node > cust_start_node_cdf[0] and cust_start_node <= cust_start_node_cdf[1] :
+				start_station_id= 31110
+			elif cust_start_node > cust_start_node_cdf[1] and cust_start_node <= cust_start_node_cdf[2] :
+				start_station_id= 31113
+			elif cust_start_node > cust_start_node_cdf[2] and cust_start_node <= cust_start_node_cdf[3] :
+				start_station_id= 31114
+			elif cust_start_node > cust_start_node_cdf[3] and cust_start_node <= cust_start_node_cdf[4] :
+				start_station_id= 31116
+			elif cust_start_node > cust_start_node_cdf[4] and cust_start_node <= cust_start_node_cdf[5] :
+				start_station_id= 31296
+			elif cust_start_node > cust_start_node_cdf[5] and cust_start_node <= cust_start_node_cdf[6] :
+				start_station_id= 40000
 	else:
 		if (system == "in_system"):
 
@@ -128,59 +144,105 @@ def give_start_station(system):
 
 def give_end_station(start_station_id,system):
 	cust_end_node = random.uniform(0,1)
-	if (system=="in_system"):
-		if PROPOSED_STATION:
-			station_ids = [31104,31110,31113,31114,31116,31296,10000]
-		else:
-			station_ids = [31104,31110,31113,31114,31116,31296]
-		end_index= station_ids.index(start_station_id)
-		end_station_id =0
 
-		if PROPOSED_STATION:
-			pass
-		else:
-			end_station_joint_dist = np.array([[0.089562,0.253732,0.089552,0.199005,0.233831,0.134328],[0.142857,0.133641,0.082949,0.267281,0.119816,0.253456],[0.066986,0.320574,0.100478,0.157895,0.143541,0.210526],[0.205357,0.379464,0.049107,0.102679,0.044643,0.218750],[0.231884,0.239130,0.108696,0.101449,0.086957,0.231884],[0.117887,0.26442,0.191057,0.186992,0.138211,0.101525]])
-
-		cust_end_node_cdf_temp= end_station_joint_dist[end_index]
-		cust_end_node_cdf =[]
-		y=x=0
-		for x in cust_end_node_cdf_temp:
-			y=y+x
-			cust_end_node_cdf.append(y)
-
+	if PROPOSED_STATION:
+			station_ids = [31104,31110,31113,31114,31116,31296,40000]
+			end_station_joint_dist = np.array([[0.0713,0.2021,0.0713,0.1585,0.1863,	0.1070,	0.2034],[0.1181,0.1105,	0.0686,	0.2210,	0.0991,	0.2096,	0.1731], [0.0589,0.2819,0.0883,	0.1388,	0.1262,	0.1851,	0.1207],[0.1629,0.3009,	0.0389,	0.0814,	0.0354,	0.1735,	0.2069],[0.1874,0.1932,	0.0878,	0.0820,	0.0703,	0.1874,	0.1919],[0.1003,0.2251,	0.1626,	0.1592,	0.1176,	0.0864,	0.1487],[0.1648,0.1402,	0.0978,	0.1676,	0.1554,	0.1205,	0.1537]])
+	else:
+		station_ids = [31104,31110,31113,31114,31116,31296]
+		end_station_joint_dist = np.array([[0.089562,0.253732,0.089552,0.199005,0.233831,0.134328],[0.142857,0.133641,0.082949,0.267281,0.119816,0.253456],[0.066986,0.320574,0.100478,0.157895,0.143541,0.210526],[0.205357,0.379464,0.049107,0.102679,0.044643,0.218750],[0.231884,0.239130,0.108696,0.101449,0.086957,0.231884],[0.117887,0.26442,0.191057,0.186992,0.138211,0.101525]])
+	
+	
 		
-		# print("end station proba {}".format(cust_end_node))
 	
 
-		if cust_end_node <=cust_end_node_cdf[0]:
+	if PROPOSED_STATION:
+		if (system=="in_system"):
+			end_index= station_ids.index(start_station_id)
+			end_station_id =0
+
+			cust_end_node_cdf_temp= end_station_joint_dist[end_index]
+			cust_end_node_cdf =[]
+			y=x=0
+			for x in cust_end_node_cdf_temp:
+				y=y+x
+				cust_end_node_cdf.append(y)
+			
+			if cust_end_node <=cust_end_node_cdf[0]:
 				end_station_id= 31104
-		elif cust_end_node > cust_end_node_cdf[0] and cust_end_node <= cust_end_node_cdf[1]:
-			end_station_id= 31110
-		elif cust_end_node > cust_end_node_cdf[1] and cust_end_node <= cust_end_node_cdf[2]:
-			end_station_id= 31113
-		elif cust_end_node > cust_end_node_cdf[2] and cust_end_node <= cust_end_node_cdf[3]:
-			end_station_id= 31114
-		elif cust_end_node > cust_end_node_cdf[3] and cust_end_node <= cust_end_node_cdf[4]:
-			end_station_id= 31116
-		elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
-			end_station_id= 31296
-		# print("end station_id is {}".format(end_station_id))
-	
-	elif(system=="out_in"):
-		cust_end_node_cdf = [0.18627,0.441064,0.52293,0.700426,0.869928,1]
-		if cust_end_node <=cust_end_node_cdf[0]:
-				end_station_id= 31104
-		elif cust_end_node > cust_end_node_cdf[0] and cust_end_node <= cust_end_node_cdf[1]:
-			end_station_id= 31110
-		elif cust_end_node > cust_end_node_cdf[1] and cust_end_node <= cust_end_node_cdf[2]:
-			end_station_id= 31113
-		elif cust_end_node > cust_end_node_cdf[2] and cust_end_node <= cust_end_node_cdf[3]:
-			end_station_id= 31114
-		elif cust_end_node > cust_end_node_cdf[3] and cust_end_node <= cust_end_node_cdf[4]:
-			end_station_id= 31116
-		elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
-			end_station_id= 31296
-		# print("end station_id is {}".format(end_station_id))
+			elif cust_end_node > cust_end_node_cdf[0] and cust_end_node <= cust_end_node_cdf[1]:
+				end_station_id= 31110
+			elif cust_end_node > cust_end_node_cdf[1] and cust_end_node <= cust_end_node_cdf[2]:
+				end_station_id= 31113
+			elif cust_end_node > cust_end_node_cdf[2] and cust_end_node <= cust_end_node_cdf[3]:
+				end_station_id= 31114
+			elif cust_end_node > cust_end_node_cdf[3] and cust_end_node <= cust_end_node_cdf[4]:
+				end_station_id= 31116
+			elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
+				end_station_id= 31296
+			elif cust_end_node > cust_end_node_cdf[5] and cust_end_node <= cust_end_node_cdf[6]:
+				end_station_id= 40000
+			# print("end station_id is {}".format(end_station_id))
+		
+		elif(system=="out_in"):
+			cust_end_node_cdf = [0.1643, 0.3886,0.4610,0.6183,0.7684,0.8832,1.0000]
+			if cust_end_node <=cust_end_node_cdf[0]:
+					end_station_id= 31104
+			elif cust_end_node > cust_end_node_cdf[0] and cust_end_node <= cust_end_node_cdf[1]:
+				end_station_id= 31110
+			elif cust_end_node > cust_end_node_cdf[1] and cust_end_node <= cust_end_node_cdf[2]:
+				end_station_id= 31113
+			elif cust_end_node > cust_end_node_cdf[2] and cust_end_node <= cust_end_node_cdf[3]:
+				end_station_id= 31114
+			elif cust_end_node > cust_end_node_cdf[3] and cust_end_node <= cust_end_node_cdf[4]:
+				end_station_id= 31116
+			elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
+				end_station_id= 31296
+			elif cust_end_node > cust_end_node_cdf[5] and cust_end_node <= cust_end_node_cdf[6]:
+				end_station_id= 40000
+
+	else:
+
+		if (system=="in_system"):
+			end_index= station_ids.index(start_station_id)
+			end_station_id =0
+
+			cust_end_node_cdf_temp= end_station_joint_dist[end_index]
+			cust_end_node_cdf =[]
+			y=x=0
+			for x in cust_end_node_cdf_temp:
+				y=y+x
+				cust_end_node_cdf.append(y)
+			
+			if cust_end_node <=cust_end_node_cdf[0]:
+					end_station_id= 31104
+			elif cust_end_node > cust_end_node_cdf[0] and cust_end_node <= cust_end_node_cdf[1]:
+				end_station_id= 31110
+			elif cust_end_node > cust_end_node_cdf[1] and cust_end_node <= cust_end_node_cdf[2]:
+				end_station_id= 31113
+			elif cust_end_node > cust_end_node_cdf[2] and cust_end_node <= cust_end_node_cdf[3]:
+				end_station_id= 31114
+			elif cust_end_node > cust_end_node_cdf[3] and cust_end_node <= cust_end_node_cdf[4]:
+				end_station_id= 31116
+			elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
+				end_station_id= 31296
+			# print("end station_id is {}".format(end_station_id))
+		
+		elif(system=="out_in"):
+			cust_end_node_cdf = [0.18627,0.441064,0.52293,0.700426,0.869928,1]
+			if cust_end_node <=cust_end_node_cdf[0]:
+					end_station_id= 31104
+			elif cust_end_node > cust_end_node_cdf[0] and cust_end_node <= cust_end_node_cdf[1]:
+				end_station_id= 31110
+			elif cust_end_node > cust_end_node_cdf[1] and cust_end_node <= cust_end_node_cdf[2]:
+				end_station_id= 31113
+			elif cust_end_node > cust_end_node_cdf[2] and cust_end_node <= cust_end_node_cdf[3]:
+				end_station_id= 31114
+			elif cust_end_node > cust_end_node_cdf[3] and cust_end_node <= cust_end_node_cdf[4]:
+				end_station_id= 31116
+			elif cust_end_node > cust_end_node_cdf[4] and cust_end_node <= cust_end_node_cdf[5]:
+				end_station_id= 31296
+			# print("end station_id is {}".format(end_station_id))
 	return end_station_id
 
 # This function gives the duration based on bike type, the start and end stations
@@ -190,8 +252,15 @@ def give_duration(station_ids,bike_type,start_station_id,end_station_id):
 	end_index = station_ids.index(end_station_id)
 
 	##### reading duration from the csv file
-	ebike_data= pd.read_csv("ebikepiv.csv")
-	pedalbike_data= pd.read_csv("pedalpiv.csv")
+	if PROPOSED_STATION:
+		ebike_data= pd.read_csv("ebikepiv_proposed.csv")
+		pedalbike_data= pd.read_csv("pedalpiv_proposed.csv")
+		
+	else:	
+		ebike_data= pd.read_csv("ebikepiv.csv")
+		pedalbike_data= pd.read_csv("pedalpiv.csv")
+
+
 	# print(ebike_data)
 	# print(pedalbike_data)
 	for c in ebike_data.columns[1:]:
@@ -682,13 +751,15 @@ def create_dataset(run,customer_list,kickedout_customer):
 	dock_util.insert(loc=1, column='station_id', value=dock_util.index)
 	dock_util.reset_index(drop = True, inplace = True)
 	#add run as a column to the dock_util dataframe
-	print(dock_util)
+	# print(dock_util)
 
 	return sim_data,moved_out_data, dock_util
 
-
+PROPOSED_STATION = True
+# PROPOSED_STATION = False
 def main():
 
+	
 	n_runs = 3
 	tot_customers_list= []
 	kickedout_customers_list=[]
@@ -928,6 +999,7 @@ def main():
 		print("=================================================================================")
 		print("=================================================================================")
 		sim_data,moved_out_data,dock_util = create_dataset(run, customer_list,kickedout_cust)
+		
 		if run == 0: #for first run, we create dockutil consolidated dataframe
 			dock_util_consolidated = dock_util.copy()
 		else:
