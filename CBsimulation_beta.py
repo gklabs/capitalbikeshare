@@ -21,6 +21,7 @@ class customer:
 		self.start_station_id= start_station_id
 		self.end_station_id= end_station_id
 		self.satisfaction = satisfaction #0 means satisfied, 1 means dissatisfied
+		
 	def giveinfo(self):
 		print(self.cust_id,
 		self.system,
@@ -480,7 +481,7 @@ def give_arrivals(PROPOSED_STATION):
 		
 	else:
 		# variable inputs
-		SEED = 1002
+		SEED = None
 		counter = 0
 		# *** OUTPUT: customer_times[] contains customer arrival times tuple (customer #, arrival time (hr))
 		## code below
@@ -654,13 +655,15 @@ def return_bike(station_ids,stations_list,nearest_node,t,cust):
 								cust.satisfaction=1
 
 def print_station(stations_list):
-	print("station resources")
+	# print("station resources")
 	for x in stations_list:
 		print("=========================")
 		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format( x.station_id, x.capacity,x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
+		
 
 def print_metrics(run,customer_list,kickedout_cust):
-	diss=0
+	diss_bike=0
+	diss_return=0
 	metrics_tuple =()
 	duration=[]
 	revenue =pedalbike_count=ebike_count=member_count=casual_count=0
@@ -677,12 +680,12 @@ def print_metrics(run,customer_list,kickedout_cust):
 			revenue+=2
 			pedalbike_count+=1
 
-		if(x.satisfaction== 1):
-			diss+=1
-		else:
-			duration.append(x.duration)
-	print("no customers who couldn't return bike to intended station {} ".format(diss))
-	
+		if(x.satisfaction== 2):
+			diss_bike+=1
+		elif(x.satisfaction==1):
+			diss_return+=1
+	print("no customers who could not get the bike of choice {} ".format(diss_bike))
+	print("no customers who could not return bike at intended station {} ".format(diss_return))
 	for x in kickedout_cust:
 		if x.bike.bike_type=="pedalbike":
 			ecoloss+= 2
@@ -693,8 +696,10 @@ def print_metrics(run,customer_list,kickedout_cust):
 	mem_util = member_count/len(customer_list)
 	casual_util= casual_count/len(customer_list)
 
+	succ_cust= len(customer_list)
+	fail_cust = len(kickedout_cust)
 
-	metrics_tuple = (run,revenue,ecoloss,biketypeutil_ebike,biketypeutil_pedalbike,mem_util,casual_util)
+	metrics_tuple = (run,succ_cust,fail_cust,diss_bike,diss_return,revenue,ecoloss,biketypeutil_ebike,biketypeutil_pedalbike,mem_util,casual_util)
 	# print("Revenue: {}\n Economic Loss {}".format(revenue,ecoloss))
 	return metrics_tuple
 			
@@ -718,17 +723,16 @@ def give_bike_type():
 	return pref_bike
 
 def create_dataset(run,customer_list,kickedout_customer):
-	moved_out_data = pd.DataFrame(columns= ["cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
-	sim_data = pd.DataFrame(columns= ["cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
+	moved_out_data = pd.DataFrame(columns= ["run","cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
+	sim_data = pd.DataFrame(columns= ["run","cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
 	
 	for x in customer_list:
-		sim_data = sim_data.append({"cust_id":x.cust_id,"system":x.system,"cust_type":x.cust_type,"bike_type":x.bike.bike_type,"start_time": x.start_time, "end_time": x.end_time,"duration": x.duration,"perm_start_station_id": x.perm_start_station_id,"start_station_id":x.start_station_id,"end_station_id":x.end_station_id,"satisfaction":x.satisfaction}, ignore_index=True)
+		sim_data = sim_data.append({"run":run,"cust_id":x.cust_id,"system":x.system,"cust_type":x.cust_type,"bike_type":x.bike.bike_type,"start_time": x.start_time, "end_time": x.end_time,"duration": x.duration,"perm_start_station_id": x.perm_start_station_id,"start_station_id":x.start_station_id,"end_station_id":x.end_station_id,"satisfaction":x.satisfaction}, ignore_index=True)
 
 	for y in kickedout_customer:
-		moved_out_data = moved_out_data.append({"cust_id":y.cust_id,"system":y.system,"cust_type":y.cust_type,"bike_type":y.bike.bike_type,"start_time": y.start_time, "end_time": y.end_time,"duration": y.duration,"perm_start_station_id": y.perm_start_station_id,"start_station_id":y.start_station_id,"end_station_id":y.end_station_id,"satisfaction":y.satisfaction},  ignore_index=True)
+		moved_out_data = moved_out_data.append({"run":run,"cust_id":y.cust_id,"system":y.system,"cust_type":y.cust_type,"bike_type":y.bike.bike_type,"start_time": y.start_time, "end_time": y.end_time,"duration": y.duration,"perm_start_station_id": y.perm_start_station_id,"start_station_id":y.start_station_id,"end_station_id":y.end_station_id,"satisfaction":y.satisfaction},  ignore_index=True)
 	
 	full_sim_data = pd.concat([sim_data,moved_out_data])
-	
 	succ_start_station_count = pd.DataFrame(sim_data.perm_start_station_id.value_counts())
 	succ_end_station_count = pd.DataFrame(sim_data.end_station_id.value_counts())
 	
@@ -755,8 +759,8 @@ def create_dataset(run,customer_list,kickedout_customer):
 
 	return sim_data,moved_out_data, dock_util
 
-PROPOSED_STATION = True
-# PROPOSED_STATION = False
+PROPOSED_STATION = False
+
 def main():
 
 	
@@ -765,6 +769,7 @@ def main():
 	kickedout_customers_list=[]
 	status_list =[]
 	metrics_list=[]
+	station_inventory = pd.DataFrame(columns=["run","time","station_id","capacity","no_ebike","no_pedalbike","no_emptydock"])
 
 	print("Starting simulation")
 	for run in range(n_runs):
@@ -788,13 +793,14 @@ def main():
 			print(station_capacities)
 
 		else:
+			#capacities= [15,14,20,22,18,23]
 			no_stations =6
 			station_ids = [31104,31110,31113,31114,31116,31296]
 			next_near= [31296,31116,31104,31116,31114,31104]
 			nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
-			no_pedalbikes= 	[15,15,15,15,16,15]
-			no_ebikes  =	[2,2,2,2,2,2]
-			no_empty_docks= [14,13,19,19,12,15]
+			no_pedalbikes= 	[11,1,10,3,16,12]
+			no_ebikes  =	[1,1,1,2,1,1]
+			no_empty_docks= [3,13,9,19,2,10]
 			station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
 			print(station_capacities)
 		
@@ -803,10 +809,10 @@ def main():
 	
 		for j in range(0,no_stations):
 			templist=[]
-			for k in range(1,no_ebikes[j]):
+			for k in range(1,no_ebikes[j]+1):
 				b1=bike('e'+str(k), station_ids[j],"ebike", "stationary")
 				templist.append(b1)
-			for m in range(1,no_pedalbikes[j]):
+			for m in range(1,no_pedalbikes[j]+1):
 				b2=bike('p'+str(k+m), station_ids[j],"pedalbike", "stationary")
 				templist.append(b2)
 			bike_list.append(templist)
@@ -879,8 +885,12 @@ def main():
 					# print("trip_duration is {}".format(trip_duration))
 				
 					#update customer object with all the calculated fields
+					if pref_bike == bike_assigned.bike_type:
+						satisfaction =0
+					else:
+						satisfaction=2
 					perm_start_station_id = start_station_id
-					temp_cust= customer(len(customer_list)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+					temp_cust= customer(len(customer_list)+1,system,cust_type,bike_assigned,t,t+trip_duration,trip_duration,perm_start_station_id,start_station_id,end_station_id,satisfaction)
 					# print("cust_id is {}".format(temp_cust.cust_id))
 					# print("end_time is {}".format(temp_cust.end_time))
 					
@@ -890,7 +900,7 @@ def main():
 					trip_duration= -1 #trip duration set to -1 for bike unassigned customers
 					perm_start_station_id = start_station_id
 					bike_assigned = bike(9000+c, start_station_id,pref_bike, "unassigned")
-					temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,trip_duration,perm_start_station_id,start_station_id,end_station_id,0)
+					temp_cust= customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,trip_duration,perm_start_station_id,start_station_id,end_station_id,1)
 					# temp_cust.giveinfo()
 					kickedout_cust.append(temp_cust)
 					# print("customer moved out of system due to unavailable bikes in the station")
@@ -930,11 +940,16 @@ def main():
 
 				
 				if (temp_bike_assigned != None):
-					temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,0)
+					if pref_bike_type == temp_bike_assigned.bike_type:
+						satisfaction =0
+					else:
+						satisfaction=2
+
+					temp_cust = customer(len(customer_list)+1,system,cust_type,temp_bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,satisfaction)
 					customer_list.append(temp_cust)
 				else:
 					bike_assigned = bike(9500+q, start_station_id,pref_bike_type, "unassigned")
-					temp_customer = customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,0)
+					temp_customer = customer(len(kickedout_cust)+1,system,cust_type,bike_assigned,t,-1,0,perm_start_station_id,start_station_id,end_station_id,1)
 					# temp_customer.giveinfo()
 					kickedout_cust.append(temp_customer)
 
@@ -973,6 +988,9 @@ def main():
 			
 			
 			status=(run,t,cust_at_time_insys+cust_at_time_in_out,len(end_trip_customer),len(middleoftrip_cust))
+			for x in stations_list:
+				station_inventory= station_inventory.append({"run":run,"time":t,"station_id":x.station_id, "capacity":x.capacity,"no_ebike":x.no_ebikes,"no_pedalbike":x.no_pedalbikes,"no_emptydock":x.no_empty_docks},ignore_index=True)
+
 			# print(status)
 			# for cust in middleoftrip_cust:
 			# 	print(cust.cust_id)
@@ -992,9 +1010,8 @@ def main():
 		print("tot cust who finished the ride successfully {}".format(len(customer_list)))
 		print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
 		# print(metrics)
-		print("=================================================================================")
-		print("=================================================================================")
-		# print_station()
+		
+		
 		
 		print("=================================================================================")
 		print("=================================================================================")
@@ -1002,9 +1019,13 @@ def main():
 		
 		if run == 0: #for first run, we create dockutil consolidated dataframe
 			dock_util_consolidated = dock_util.copy()
+			sim_data_consolidated= sim_data.copy()
+			moved_out_data_consolidated = moved_out_data.copy()
+
 		else:
 			dock_util_consolidated = dock_util_consolidated.append(dock_util, ignore_index=True)
-
+			sim_data_consolidated = sim_data_consolidated.append(sim_data, ignore_index=True)
+			moved_out_data_consolidated = moved_out_data_consolidated.append(moved_out_data, ignore_index=True)
 		# print(sim_data.head)
 		# print(moved_out_data)
 		print("=================================================================================")
@@ -1016,11 +1037,13 @@ def main():
 		tot_customers_list.append(tot_customers)
 		kickedout_customers_list.append(len(kickedout_cust))
 	# print(status_list)
-	status_df = pd.DataFrame.from_records(status_list, columns =['Run', 't','no_cust_start','no_cust_end','no_cust_middle']) 
-	metrics_df= pd.DataFrame.from_records(metrics_list, columns =['run','revenue','ecoloss','biketypeutil_ebike','biketypeutil_pedalbike','mem_util','casual_util']) 
+	status_df = pd.DataFrame.from_records(status_list, columns =['run', 't','no_cust_start','no_cust_end','no_cust_middle']) 
+	metrics_df= pd.DataFrame.from_records(metrics_list, columns =['run','succ_cust','fail_cust','diss_bike','diss_return','revenue','ecoloss','biketypeutil_ebike','biketypeutil_pedalbike','mem_util','casual_util']) 
+	print(station_inventory.head)
+	# print(moved_out_data_consolidated)
 	# print(dock_util_consolidated.shape)
 	# print(dock_util_consolidated)
-	#print(sim_data)
+	# print(sim_data)
 	# print(status_df.tail(50))
 	# print(metrics_df.head)
 
