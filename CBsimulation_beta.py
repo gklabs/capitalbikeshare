@@ -759,17 +759,17 @@ def create_dataset(run,customer_list,kickedout_customer):
 
 	return sim_data,moved_out_data, dock_util
 
-PROPOSED_STATION = False
+PROPOSED_STATION = True
 
 def main():
 
 	
-	n_runs = 3
+	n_runs = 1
 	tot_customers_list= []
 	kickedout_customers_list=[]
 	status_list =[]
 	metrics_list=[]
-	station_inventory = pd.DataFrame(columns=["run","time","station_id","capacity","no_ebike","no_pedalbike","no_emptydock"])
+	station_inventory_list = []
 
 	print("Starting simulation")
 	for run in range(n_runs):
@@ -782,13 +782,14 @@ def main():
 		stations_list = []
 		bike_list =[]
 		if PROPOSED_STATION:
+			#capacities= [15,15,20,22,18,23,17]
 			no_stations =7
 			station_ids = [31104,31110,31113,31114,31116,31296,40000]
 			next_near= [31296,31116,31104,31116,31114,31104,31113]
 			nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
-			no_pedalbikes= 	[11,1,10,3,16,12,10]
-			no_ebikes  =	[2,2,2,2,2,2,2]
-			no_empty_docks= [14,13,19,19,12,10,5]
+			no_pedalbikes= 	[7,4,10,14,7,11,10] #63 pedal
+			no_ebikes  =	[2,2,5,2,2,2,2] # 14 ebikes
+			no_empty_docks= [6,9,4,6,10,10,5] 
 			station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
 			print(station_capacities)
 
@@ -798,9 +799,9 @@ def main():
 			station_ids = [31104,31110,31113,31114,31116,31296]
 			next_near= [31296,31116,31104,31116,31114,31104]
 			nearest_node = {x:y for x,y in list(zip(station_ids,next_near))}
-			no_pedalbikes= 	[11,1,10,3,16,12]
-			no_ebikes  =	[1,1,1,2,1,1]
-			no_empty_docks= [3,13,9,19,2,10]
+			no_pedalbikes= 	[7,4,10,14,7,11] 
+			no_ebikes  =	[2,2,5,2,2,2] 
+			no_empty_docks= [6,9,4,6,10,10] 
 			station_capacities= [x+y+z for x,y,z in list(zip(no_pedalbikes,no_ebikes,no_empty_docks))]
 			print(station_capacities)
 		
@@ -987,14 +988,17 @@ def main():
 					# print("===============================")
 			
 			
-			status=(run,t,cust_at_time_insys+cust_at_time_in_out,len(end_trip_customer),len(middleoftrip_cust))
-			for x in stations_list:
-				station_inventory= station_inventory.append({"run":run,"time":t,"station_id":x.station_id, "capacity":x.capacity,"no_ebike":x.no_ebikes,"no_pedalbike":x.no_pedalbikes,"no_emptydock":x.no_empty_docks},ignore_index=True)
+			
 
+			for x in stations_list:
+				station_inventory = (run,t,x.station_id,x.capacity,x.no_ebikes,x.no_pedalbikes,x.no_empty_docks)
+				station_inventory_list.append(station_inventory)
+				
 			# print(status)
 			# for cust in middleoftrip_cust:
 			# 	print(cust.cust_id)
-			
+
+			status=(run,t,cust_at_time_insys+cust_at_time_in_out,len(end_trip_customer),len(middleoftrip_cust))
 			status_list.append(status)
 			tot_customers= tot_customers+cust_at_time_insys + cust_at_time_in_out +cust_at_time_out_in
 
@@ -1010,8 +1014,6 @@ def main():
 		print("tot cust who finished the ride successfully {}".format(len(customer_list)))
 		print(" No of Customers who couldn't get a bike {}".format(len(kickedout_cust)))
 		# print(metrics)
-		
-		
 		
 		print("=================================================================================")
 		print("=================================================================================")
@@ -1037,9 +1039,22 @@ def main():
 		tot_customers_list.append(tot_customers)
 		kickedout_customers_list.append(len(kickedout_cust))
 	# print(status_list)
+	station_inventory_df = pd.DataFrame.from_records(station_inventory_list, columns=["run","time","station_id","capacity","no_ebike","no_pedalbike","no_emptydock"])
 	status_df = pd.DataFrame.from_records(status_list, columns =['run', 't','no_cust_start','no_cust_end','no_cust_middle']) 
 	metrics_df= pd.DataFrame.from_records(metrics_list, columns =['run','succ_cust','fail_cust','diss_bike','diss_return','revenue','ecoloss','biketypeutil_ebike','biketypeutil_pedalbike','mem_util','casual_util']) 
-	print(station_inventory.head)
+	
+	address="/Users/gkbytes/capitalbikeshare/output/"
+	
+	#getting output data to csv files
+	dock_util_consolidated.to_csv(address+"dock_util_consolidated_prop.csv", index=False)
+	station_inventory_df.to_csv(address+"station_inventory_prop.csv",index=False)
+	metrics_df.to_csv(address+"metrics_df_prop.csv",index=False)
+	status_df.to_csv(address+"status_df_prop.csv",index=False)
+	sim_data_consolidated.to_csv(address+"sim_data_consolidated_prop.csv",index=False)
+	moved_out_data_consolidated.to_csv(address+"moved_out_data_consolidated_prop.csv",index=False)
+
+
+	# print(station_inventory.head)
 	# print(moved_out_data_consolidated)
 	# print(dock_util_consolidated.shape)
 	# print(dock_util_consolidated)
