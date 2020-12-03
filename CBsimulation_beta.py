@@ -71,7 +71,32 @@ class station:
 			else:
 				self.no_ebikes+=1
 
+'''
+Gives customer type based on prior distribution
+'''
+def give_cust_type():
+	# casual vs member (0.2810 vs 0.7189)
+	casual_member= random.uniform(0,1)
+	if casual_member>= 0.718929:
+		cust_type= "casual"
+	else:
+		cust_type ="member"
+	return cust_type
 
+'''
+Gives customer type based on prior distribution
+'''
+def give_bike_type():
+	pedal_ebike= random.uniform(0,1)
+	if pedal_ebike>= 0.881335:
+		pref_bike= "pedalbike"
+	else:
+		pref_bike ="ebike"
+	return pref_bike
+
+'''
+Gives start station of a customer based on prior distribution
+'''
 def give_start_station(system):
 	#assign customer to  start station and end station based on priors
 	cust_start_node = random.uniform(0,1)
@@ -143,6 +168,9 @@ def give_start_station(system):
 
 	return start_station_id
 
+'''
+Gives end station of a customer based on prior distribution
+'''
 def give_end_station(start_station_id,system):
 	cust_end_node = random.uniform(0,1)
 
@@ -246,7 +274,9 @@ def give_end_station(start_station_id,system):
 			# print("end station_id is {}".format(end_station_id))
 	return end_station_id
 
-# This function gives the duration based on bike type, the start and end stations
+'''
+Gives duration of a ride of a customer based on a an assumption of a fixed velocity of pedal and ebike
+'''
 def give_duration(station_ids,bike_type,start_station_id,end_station_id):
 	
 	start_index= station_ids.index(start_station_id)
@@ -279,6 +309,9 @@ def give_duration(station_ids,bike_type,start_station_id,end_station_id):
 	else:
 		return ebike_duration_matrix[start_index][end_index]
 
+'''
+Assigns a bike if a bike is available to the customer. Assigns an alternate bike if preferred bike type is unavailable
+'''
 def give_bike(stations_list,start_station_id,pref_bike):
 
 	# check if preferred bike exists in start station
@@ -339,11 +372,17 @@ def give_bike(stations_list,start_station_id,pref_bike):
 			else:
 				# print("no bikes available. Bike not assigned")
 				return None
+
+'''
+Approximates decimals to the nearest integer to enable discrete simulation
+'''
 def truncate(n, decimals=0):
 	multiplier = 10 ** decimals
 	return int(n * multiplier) / multiplier
 #===============================================================
-
+'''
+Gives the arrival times of the 3 types of customers based on real life data implemented via the thinning algorithm
+'''
 #implementing thinning algorithm
 def give_arrivals(PROPOSED_STATION):
 	if PROPOSED_STATION == True:
@@ -618,7 +657,9 @@ def give_arrivals(PROPOSED_STATION):
 	return customer_startinendin, customer_startinendout,customer_startoutendin
 
 	
-	###################################################
+'''
+Gives the number of customers arriving at a given time instant
+'''
 def give_customers(t,arrival_times):
 
 	no_cust_at_time= 0
@@ -628,8 +669,9 @@ def give_customers(t,arrival_times):
 
 	return no_cust_at_time
 
-#===============================================================
-
+'''
+Implements the returning of a bike procedure- if no empty docks are available customer drives to the nearest station
+'''
 def return_bike(station_ids,stations_list,nearest_node,t,cust):
 	for s in stations_list:
 				if s.station_id==cust.end_station_id:
@@ -654,13 +696,19 @@ def return_bike(station_ids,stations_list,nearest_node,t,cust):
 								cust.end_time= t + cust.duration
 								cust.satisfaction=1
 
+'''
+Prints station inventory
+'''
+
 def print_station(stations_list):
 	# print("station resources")
 	for x in stations_list:
 		print("=========================")
 		print("station id {} \n Capacity {}\n no_ebikes {} \n no_pedalbikes {} \n no_emptydocks {}".format( x.station_id, x.capacity,x.no_ebikes,x.no_pedalbikes,x.no_empty_docks))
-		
 
+'''
+Prints metrics that we are tracking- run,succ_cust,fail_cust,diss_bike,diss_return,revenue,ecoloss,biketypeutil_ebike,biketypeutil_pedalbike,mem_util,casual_util		
+'''
 def print_metrics(run,customer_list,kickedout_cust):
 	diss_bike=0
 	diss_return=0
@@ -704,24 +752,9 @@ def print_metrics(run,customer_list,kickedout_cust):
 	return metrics_tuple
 			
 
-#==============================================================================
-def give_cust_type():
-	# casual vs member (0.2810 vs 0.7189)
-	casual_member= random.uniform(0,1)
-	if casual_member>= 0.718929:
-		cust_type= "casual"
-	else:
-		cust_type ="member"
-	return cust_type
-
-def give_bike_type():
-	pedal_ebike= random.uniform(0,1)
-	if pedal_ebike>= 0.881335:
-		pref_bike= "pedalbike"
-	else:
-		pref_bike ="ebike"
-	return pref_bike
-
+'''
+Tracks the simulation data for every run- for both successful and unsuccessful customers
+'''
 def create_dataset(run,customer_list,kickedout_customer):
 	moved_out_data = pd.DataFrame(columns= ["run","cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
 	sim_data = pd.DataFrame(columns= ["run","cust_id","system","cust_type","bike_type","start_time", "end_time","duration","perm_start_station_id","start_station_id","end_station_id","satisfaction"])
@@ -851,8 +884,8 @@ def main():
 		# print(startout_end_in_arrival_times)
 		
 		#==================================================================
-		#start time- simulating every minute
 		
+		#start time- simulating every minute
 		for t in range(1,1441):
 			# print("time: {}  ".format(t))
 
