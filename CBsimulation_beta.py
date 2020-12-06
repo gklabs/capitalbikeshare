@@ -20,7 +20,7 @@ class customer:
 		self.perm_start_station_id = perm_start_station_id
 		self.start_station_id= start_station_id
 		self.end_station_id= end_station_id
-		self.satisfaction = satisfaction #0 means satisfied, 1 means dissatisfied
+		self.satisfaction = satisfaction #0 means satisfied, # 1 means dissatisfied because they couldn't return bike to destination 2 means they couldnt get biketype
 		
 	def giveinfo(self):
 		print(self.cust_id,
@@ -792,12 +792,12 @@ def create_dataset(run,customer_list,kickedout_customer):
 
 	return sim_data,moved_out_data, dock_util
 
-PROPOSED_STATION = True
+PROPOSED_STATION = False
 
 def main():
 
 	
-	n_runs = 1
+	n_runs = 10
 	tot_customers_list= []
 	kickedout_customers_list=[]
 	status_list =[]
@@ -1076,15 +1076,15 @@ def main():
 	status_df = pd.DataFrame.from_records(status_list, columns =['run', 't','no_cust_start','no_cust_end','no_cust_middle']) 
 	metrics_df= pd.DataFrame.from_records(metrics_list, columns =['run','succ_cust','fail_cust','diss_bike','diss_return','revenue','ecoloss','biketypeutil_ebike','biketypeutil_pedalbike','mem_util','casual_util']) 
 	
-	address="/Users/gkbytes/capitalbikeshare/output/"
+	# address="/Users/gkbytes/capitalbikeshare/output/"
 	
 	#getting output data to csv files
-	dock_util_consolidated.to_csv(address+"dock_util_consolidated_prop.csv", index=False)
-	station_inventory_df.to_csv(address+"station_inventory_prop.csv",index=False)
-	metrics_df.to_csv(address+"metrics_df_prop.csv",index=False)
-	status_df.to_csv(address+"status_df_prop.csv",index=False)
-	sim_data_consolidated.to_csv(address+"sim_data_consolidated_prop.csv",index=False)
-	moved_out_data_consolidated.to_csv(address+"moved_out_data_consolidated_prop.csv",index=False)
+	dock_util_consolidated.to_csv("dock_util_consolidated_prop.csv", index=False)
+	station_inventory_df.to_csv("station_inventory_prop.csv",index=False)
+	metrics_df.to_csv("metrics_df_prop.csv",index=False)
+	status_df.to_csv("status_df_prop.csv",index=False)
+	sim_data_consolidated.to_csv("sim_data_consolidated_prop.csv",index=False)
+	moved_out_data_consolidated.to_csv("moved_out_data_consolidated_prop.csv",index=False)
 
 
 	# print(station_inventory.head)
