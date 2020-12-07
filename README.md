@@ -1,24 +1,11 @@
 # capitalbikeshare
-Scenarios 
-1- Naive approach- use ratio of capacities on the bikes
-2- 
+To run the simulation, download this repository on your local machine. 
+The folder contains all the necessary input files for running the code. 
 
-# Input Analysis
-Arrival
-Member type
-Bike Type
-
-Start station 
-End station joint distribution
+The number of simulations is set to 10. This can be changed in in line 800 of the CBsimulation_beta.py
 
 
-# Proposed Node
-Logic for the proposed node
+Please load the folder and on the terminal execute the following commands-
+python3 CBsimulation_beta.py
 
-# Output Analysis
-## Metrics
-Number of dissatisfied customers
-source of dissatisfaction:
-1-arrival at an empty station
-2-end ride station full
-3-want bike get alternate
+This command will start the simulation and print out the metrics for every run.
